@@ -51,6 +51,11 @@ lint:
 	CGO_ENABLED=1 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.3 run
 .PHONY: lint
 
+#? lint-fix: Lint the kms module (pinned golangci-lint) with --fix flag
+lint-fix:
+	CGO_ENABLED=1 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.3 run --fix
+.PHONY: lint
+
 #? tidy: Tidy the kms module dependencies
 tidy:
 	go mod tidy
