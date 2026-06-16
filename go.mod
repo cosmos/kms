@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.42.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.25
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.24
-	github.com/aws/aws-sdk-go-v2/service/kms v1.50.1
+	github.com/aws/aws-sdk-go-v2/service/kms v1.53.4
 	github.com/cometbft/cometbft v0.39.0-rc1.0.20260615134937-9ea34470f336
 	github.com/libp2p/go-libp2p v0.47.0
 	github.com/miekg/pkcs11 v1.1.2
