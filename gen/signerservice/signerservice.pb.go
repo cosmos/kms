@@ -631,7 +631,7 @@ func (x *EvmTransactionSignature) GetV() []byte {
 
 type CosmosTransaction struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	SignDocBytes  []byte                 `protobuf:"bytes,2,opt,name=sign_doc_bytes,json=signDocBytes,proto3" json:"sign_doc_bytes,omitempty"`
+	SignDocBytes  []byte                 `protobuf:"bytes,1,opt,name=sign_doc_bytes,json=signDocBytes,proto3" json:"sign_doc_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1037,7 +1037,7 @@ const file_signerservice_signerservice_proto_rawDesc = "" +
 	"\x01s\x18\x02 \x01(\fR\x01s\x12\f\n" +
 	"\x01v\x18\x03 \x01(\fR\x01v\"9\n" +
 	"\x11CosmosTransaction\x12$\n" +
-	"\x0esign_doc_bytes\x18\x02 \x01(\fR\fsignDocBytes\":\n" +
+	"\x0esign_doc_bytes\x18\x01 \x01(\fR\fsignDocBytes\":\n" +
 	"\x1aCosmosTransactionSignature\x12\x1c\n" +
 	"\tsignature\x18\x01 \x01(\fR\tsignature\"&\n" +
 	"\n" +

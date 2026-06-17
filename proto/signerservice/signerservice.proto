@@ -63,7 +63,7 @@ message EvmTransactionSignature {
 }
 
 message CosmosTransaction {
-    bytes sign_doc_bytes = 2;
+    bytes sign_doc_bytes = 1;
 }
 
 message CosmosTransactionSignature {
