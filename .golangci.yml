@@ -32,6 +32,7 @@ linters:
             - github.com/BurntSushi/toml
             - github.com/spf13/cobra
             - github.com/stretchr/testify
+            - github.com/decred/dcrd/dcrec/secp256k1
         test:
           files:
             - $test
@@ -45,6 +46,7 @@ linters:
             - github.com/BurntSushi/toml
             - github.com/spf13/cobra
             - github.com/stretchr/testify
+            - github.com/decred/dcrd/dcrec/secp256k1
     dogsled:
       max-blank-identifiers: 3
     gosec:
