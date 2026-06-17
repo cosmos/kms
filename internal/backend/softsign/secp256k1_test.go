@@ -67,7 +67,7 @@ func TestPubKeyShapes(t *testing.T) {
 	const hexKey = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
 	s, err := LoadSecp256k1(writeKeyFile(t, hexKey))
 	require.NoError(t, err)
-	require.Len(t, s.PubKeyCompressed(), 33)
+	require.Len(t, s.PubKey(), 33)
 	require.Len(t, s.PubKeyUncompressed(), 65)
 	require.Equal(t, byte(0x04), s.PubKeyUncompressed()[0])
 	require.IsType(t, &secp256k1.PublicKey{}, s.pub)

@@ -72,9 +72,9 @@ func (s *Secp256k1Signer) SignDigest(digest []byte) (r, sig, v []byte, err error
 // Algo reports the key algorithm identifier.
 func (s *Secp256k1Signer) Algo() string { return AlgoSecp256k1 }
 
-// PubKeyCompressed returns the 33-byte compressed secp256k1 public key (the
-// canonical SignerService encoding for secp256k1).
-func (s *Secp256k1Signer) PubKeyCompressed() []byte { return s.pub.SerializeCompressed() }
+// PubKey returns the 33-byte compressed secp256k1 public key (the canonical
+// SignerService encoding for secp256k1).
+func (s *Secp256k1Signer) PubKey() []byte { return s.pub.SerializeCompressed() }
 
 // PubKeyUncompressed returns the 65-byte uncompressed secp256k1 public key
 // (0x04 || X || Y). Used in tests for recovery comparison.
