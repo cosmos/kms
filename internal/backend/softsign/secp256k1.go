@@ -58,8 +58,10 @@ func (s *Secp256k1Signer) SignDigest(digest []byte) (r, sig, v []byte, err error
 	recid := compact[0] - 27 // pubKeyRecoveryCode (0–3)
 	if recid > 1 {
 		// recid 2/3 means the X-overflow case (~1-in-2^127 on secp256k1); the
-		// SignerService protocol requires a 0/1 recovery id, so reject it.
-		return nil, nil, nil, fmt.Errorf("softsign: unexpected recovery id %d (X-overflow point); re-sign required", recid)
+		// SignerService protocol requires a 0/1 recovery id, so reject it. This
+		// is unrecoverable for this key+digest: RFC6979 nonces are deterministic,
+		// so re-signing the same digest yields the same recid every time.
+		return nil, nil, nil, fmt.Errorf("softsign: recovery id %d (X-overflow point) unsupported; key+digest cannot produce a 0/1 recovery id", recid)
 	}
 	r = append([]byte(nil), compact[1:33]...)
 	sig = append([]byte(nil), compact[33:65]...)
