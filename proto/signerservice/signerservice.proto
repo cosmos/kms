@@ -15,6 +15,12 @@ enum SignatureScheme {
   ED25519         = 1;   // input: message (hashed internally); output: 64-byte signature
 }
 
+message Payload {
+  oneof kind {
+    bytes generic = 1;
+  }
+}
+
 message Key {
     string id = 1;
     bytes pubkey = 2;
@@ -38,12 +44,10 @@ message GetKeysResponse {
 
 message SignRequest {
     string key_id = 1;
-    SignatureScheme scheme = 2;
-    bytes payload = 3;
+    Payload payload = 2;
 }
 
 message SignResponse {
-    SignatureScheme scheme = 1;
-    bytes signature = 2;
+    bytes signature = 1;
 }
 

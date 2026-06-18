@@ -67,6 +67,72 @@ func (SignatureScheme) EnumDescriptor() ([]byte, []int) {
 	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{0}
 }
 
+type Payload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Kind:
+	//
+	//	*Payload_Generic
+	Kind          isPayload_Kind `protobuf_oneof:"kind"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Payload) Reset() {
+	*x = Payload{}
+	mi := &file_signerservice_signerservice_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Payload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Payload) ProtoMessage() {}
+
+func (x *Payload) ProtoReflect() protoreflect.Message {
+	mi := &file_signerservice_signerservice_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Payload.ProtoReflect.Descriptor instead.
+func (*Payload) Descriptor() ([]byte, []int) {
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Payload) GetKind() isPayload_Kind {
+	if x != nil {
+		return x.Kind
+	}
+	return nil
+}
+
+func (x *Payload) GetGeneric() []byte {
+	if x != nil {
+		if x, ok := x.Kind.(*Payload_Generic); ok {
+			return x.Generic
+		}
+	}
+	return nil
+}
+
+type isPayload_Kind interface {
+	isPayload_Kind()
+}
+
+type Payload_Generic struct {
+	Generic []byte `protobuf:"bytes,1,opt,name=generic,proto3,oneof"`
+}
+
+func (*Payload_Generic) isPayload_Kind() {}
+
 type Key struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -78,7 +144,7 @@ type Key struct {
 
 func (x *Key) Reset() {
 	*x = Key{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[0]
+	mi := &file_signerservice_signerservice_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -90,7 +156,7 @@ func (x *Key) String() string {
 func (*Key) ProtoMessage() {}
 
 func (x *Key) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[0]
+	mi := &file_signerservice_signerservice_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -103,7 +169,7 @@ func (x *Key) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Key.ProtoReflect.Descriptor instead.
 func (*Key) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{0}
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Key) GetId() string {
@@ -136,7 +202,7 @@ type GetKeyRequest struct {
 
 func (x *GetKeyRequest) Reset() {
 	*x = GetKeyRequest{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[1]
+	mi := &file_signerservice_signerservice_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -148,7 +214,7 @@ func (x *GetKeyRequest) String() string {
 func (*GetKeyRequest) ProtoMessage() {}
 
 func (x *GetKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[1]
+	mi := &file_signerservice_signerservice_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -161,7 +227,7 @@ func (x *GetKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKeyRequest.ProtoReflect.Descriptor instead.
 func (*GetKeyRequest) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{1}
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetKeyRequest) GetId() string {
@@ -180,7 +246,7 @@ type GetKeyResponse struct {
 
 func (x *GetKeyResponse) Reset() {
 	*x = GetKeyResponse{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[2]
+	mi := &file_signerservice_signerservice_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -192,7 +258,7 @@ func (x *GetKeyResponse) String() string {
 func (*GetKeyResponse) ProtoMessage() {}
 
 func (x *GetKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[2]
+	mi := &file_signerservice_signerservice_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -205,7 +271,7 @@ func (x *GetKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKeyResponse.ProtoReflect.Descriptor instead.
 func (*GetKeyResponse) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{2}
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetKeyResponse) GetKey() *Key {
@@ -223,7 +289,7 @@ type GetKeysRequest struct {
 
 func (x *GetKeysRequest) Reset() {
 	*x = GetKeysRequest{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[3]
+	mi := &file_signerservice_signerservice_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -235,7 +301,7 @@ func (x *GetKeysRequest) String() string {
 func (*GetKeysRequest) ProtoMessage() {}
 
 func (x *GetKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[3]
+	mi := &file_signerservice_signerservice_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -248,7 +314,7 @@ func (x *GetKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKeysRequest.ProtoReflect.Descriptor instead.
 func (*GetKeysRequest) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{3}
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{4}
 }
 
 type GetKeysResponse struct {
@@ -260,7 +326,7 @@ type GetKeysResponse struct {
 
 func (x *GetKeysResponse) Reset() {
 	*x = GetKeysResponse{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[4]
+	mi := &file_signerservice_signerservice_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -272,7 +338,7 @@ func (x *GetKeysResponse) String() string {
 func (*GetKeysResponse) ProtoMessage() {}
 
 func (x *GetKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[4]
+	mi := &file_signerservice_signerservice_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -285,7 +351,7 @@ func (x *GetKeysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKeysResponse.ProtoReflect.Descriptor instead.
 func (*GetKeysResponse) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{4}
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetKeysResponse) GetKeys() []*Key {
@@ -298,15 +364,14 @@ func (x *GetKeysResponse) GetKeys() []*Key {
 type SignRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	KeyId         string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
-	Scheme        SignatureScheme        `protobuf:"varint,2,opt,name=scheme,proto3,enum=cosmos.kms.signerservice.SignatureScheme" json:"scheme,omitempty"`
-	Payload       []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload       *Payload               `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SignRequest) Reset() {
 	*x = SignRequest{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[5]
+	mi := &file_signerservice_signerservice_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +383,7 @@ func (x *SignRequest) String() string {
 func (*SignRequest) ProtoMessage() {}
 
 func (x *SignRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[5]
+	mi := &file_signerservice_signerservice_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -331,7 +396,7 @@ func (x *SignRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignRequest.ProtoReflect.Descriptor instead.
 func (*SignRequest) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{5}
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SignRequest) GetKeyId() string {
@@ -341,14 +406,7 @@ func (x *SignRequest) GetKeyId() string {
 	return ""
 }
 
-func (x *SignRequest) GetScheme() SignatureScheme {
-	if x != nil {
-		return x.Scheme
-	}
-	return SignatureScheme_ECDSA_SECP256K1
-}
-
-func (x *SignRequest) GetPayload() []byte {
+func (x *SignRequest) GetPayload() *Payload {
 	if x != nil {
 		return x.Payload
 	}
@@ -357,15 +415,14 @@ func (x *SignRequest) GetPayload() []byte {
 
 type SignResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Scheme        SignatureScheme        `protobuf:"varint,1,opt,name=scheme,proto3,enum=cosmos.kms.signerservice.SignatureScheme" json:"scheme,omitempty"`
-	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,1,opt,name=signature,proto3" json:"signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SignResponse) Reset() {
 	*x = SignResponse{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[6]
+	mi := &file_signerservice_signerservice_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -377,7 +434,7 @@ func (x *SignResponse) String() string {
 func (*SignResponse) ProtoMessage() {}
 
 func (x *SignResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[6]
+	mi := &file_signerservice_signerservice_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -390,14 +447,7 @@ func (x *SignResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignResponse.ProtoReflect.Descriptor instead.
 func (*SignResponse) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *SignResponse) GetScheme() SignatureScheme {
-	if x != nil {
-		return x.Scheme
-	}
-	return SignatureScheme_ECDSA_SECP256K1
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SignResponse) GetSignature() []byte {
@@ -411,7 +461,10 @@ var File_signerservice_signerservice_proto protoreflect.FileDescriptor
 
 const file_signerservice_signerservice_proto_rawDesc = "" +
 	"\n" +
-	"!signerservice/signerservice.proto\x12\x18cosmos.kms.signerservice\"p\n" +
+	"!signerservice/signerservice.proto\x12\x18cosmos.kms.signerservice\"-\n" +
+	"\aPayload\x12\x1a\n" +
+	"\ageneric\x18\x01 \x01(\fH\x00R\agenericB\x06\n" +
+	"\x04kind\"p\n" +
 	"\x03Key\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06pubkey\x18\x02 \x01(\fR\x06pubkey\x12A\n" +
@@ -422,14 +475,12 @@ const file_signerservice_signerservice_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\v2\x1d.cosmos.kms.signerservice.KeyR\x03key\"\x10\n" +
 	"\x0eGetKeysRequest\"D\n" +
 	"\x0fGetKeysResponse\x121\n" +
-	"\x04keys\x18\x01 \x03(\v2\x1d.cosmos.kms.signerservice.KeyR\x04keys\"\x81\x01\n" +
+	"\x04keys\x18\x01 \x03(\v2\x1d.cosmos.kms.signerservice.KeyR\x04keys\"a\n" +
 	"\vSignRequest\x12\x15\n" +
-	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12A\n" +
-	"\x06scheme\x18\x02 \x01(\x0e2).cosmos.kms.signerservice.SignatureSchemeR\x06scheme\x12\x18\n" +
-	"\apayload\x18\x03 \x01(\fR\apayload\"o\n" +
-	"\fSignResponse\x12A\n" +
-	"\x06scheme\x18\x01 \x01(\x0e2).cosmos.kms.signerservice.SignatureSchemeR\x06scheme\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature*3\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12;\n" +
+	"\apayload\x18\x02 \x01(\v2!.cosmos.kms.signerservice.PayloadR\apayload\",\n" +
+	"\fSignResponse\x12\x1c\n" +
+	"\tsignature\x18\x01 \x01(\fR\tsignature*3\n" +
 	"\x0fSignatureScheme\x12\x13\n" +
 	"\x0fECDSA_SECP256K1\x10\x00\x12\v\n" +
 	"\aED25519\x10\x012\xa9\x02\n" +
@@ -451,34 +502,34 @@ func file_signerservice_signerservice_proto_rawDescGZIP() []byte {
 }
 
 var file_signerservice_signerservice_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_signerservice_signerservice_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_signerservice_signerservice_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_signerservice_signerservice_proto_goTypes = []any{
 	(SignatureScheme)(0),    // 0: cosmos.kms.signerservice.SignatureScheme
-	(*Key)(nil),             // 1: cosmos.kms.signerservice.Key
-	(*GetKeyRequest)(nil),   // 2: cosmos.kms.signerservice.GetKeyRequest
-	(*GetKeyResponse)(nil),  // 3: cosmos.kms.signerservice.GetKeyResponse
-	(*GetKeysRequest)(nil),  // 4: cosmos.kms.signerservice.GetKeysRequest
-	(*GetKeysResponse)(nil), // 5: cosmos.kms.signerservice.GetKeysResponse
-	(*SignRequest)(nil),     // 6: cosmos.kms.signerservice.SignRequest
-	(*SignResponse)(nil),    // 7: cosmos.kms.signerservice.SignResponse
+	(*Payload)(nil),         // 1: cosmos.kms.signerservice.Payload
+	(*Key)(nil),             // 2: cosmos.kms.signerservice.Key
+	(*GetKeyRequest)(nil),   // 3: cosmos.kms.signerservice.GetKeyRequest
+	(*GetKeyResponse)(nil),  // 4: cosmos.kms.signerservice.GetKeyResponse
+	(*GetKeysRequest)(nil),  // 5: cosmos.kms.signerservice.GetKeysRequest
+	(*GetKeysResponse)(nil), // 6: cosmos.kms.signerservice.GetKeysResponse
+	(*SignRequest)(nil),     // 7: cosmos.kms.signerservice.SignRequest
+	(*SignResponse)(nil),    // 8: cosmos.kms.signerservice.SignResponse
 }
 var file_signerservice_signerservice_proto_depIdxs = []int32{
 	0, // 0: cosmos.kms.signerservice.Key.scheme:type_name -> cosmos.kms.signerservice.SignatureScheme
-	1, // 1: cosmos.kms.signerservice.GetKeyResponse.key:type_name -> cosmos.kms.signerservice.Key
-	1, // 2: cosmos.kms.signerservice.GetKeysResponse.keys:type_name -> cosmos.kms.signerservice.Key
-	0, // 3: cosmos.kms.signerservice.SignRequest.scheme:type_name -> cosmos.kms.signerservice.SignatureScheme
-	0, // 4: cosmos.kms.signerservice.SignResponse.scheme:type_name -> cosmos.kms.signerservice.SignatureScheme
-	2, // 5: cosmos.kms.signerservice.SignerService.GetKey:input_type -> cosmos.kms.signerservice.GetKeyRequest
-	4, // 6: cosmos.kms.signerservice.SignerService.GetKeys:input_type -> cosmos.kms.signerservice.GetKeysRequest
-	6, // 7: cosmos.kms.signerservice.SignerService.Sign:input_type -> cosmos.kms.signerservice.SignRequest
-	3, // 8: cosmos.kms.signerservice.SignerService.GetKey:output_type -> cosmos.kms.signerservice.GetKeyResponse
-	5, // 9: cosmos.kms.signerservice.SignerService.GetKeys:output_type -> cosmos.kms.signerservice.GetKeysResponse
-	7, // 10: cosmos.kms.signerservice.SignerService.Sign:output_type -> cosmos.kms.signerservice.SignResponse
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2, // 1: cosmos.kms.signerservice.GetKeyResponse.key:type_name -> cosmos.kms.signerservice.Key
+	2, // 2: cosmos.kms.signerservice.GetKeysResponse.keys:type_name -> cosmos.kms.signerservice.Key
+	1, // 3: cosmos.kms.signerservice.SignRequest.payload:type_name -> cosmos.kms.signerservice.Payload
+	3, // 4: cosmos.kms.signerservice.SignerService.GetKey:input_type -> cosmos.kms.signerservice.GetKeyRequest
+	5, // 5: cosmos.kms.signerservice.SignerService.GetKeys:input_type -> cosmos.kms.signerservice.GetKeysRequest
+	7, // 6: cosmos.kms.signerservice.SignerService.Sign:input_type -> cosmos.kms.signerservice.SignRequest
+	4, // 7: cosmos.kms.signerservice.SignerService.GetKey:output_type -> cosmos.kms.signerservice.GetKeyResponse
+	6, // 8: cosmos.kms.signerservice.SignerService.GetKeys:output_type -> cosmos.kms.signerservice.GetKeysResponse
+	8, // 9: cosmos.kms.signerservice.SignerService.Sign:output_type -> cosmos.kms.signerservice.SignResponse
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_signerservice_signerservice_proto_init() }
@@ -486,13 +537,16 @@ func file_signerservice_signerservice_proto_init() {
 	if File_signerservice_signerservice_proto != nil {
 		return
 	}
+	file_signerservice_signerservice_proto_msgTypes[0].OneofWrappers = []any{
+		(*Payload_Generic)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_signerservice_signerservice_proto_rawDesc), len(file_signerservice_signerservice_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
