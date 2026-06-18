@@ -61,6 +61,15 @@ tidy:
 	go mod tidy
 .PHONY: tidy
 
+#? proto-gen: Generate protobuf types
+proto-gen:
+	protoc \
+	  --go_out=gen --go_opt=paths=source_relative \
+	  --go-grpc_out=gen --go-grpc_opt=paths=source_relative \
+	  --proto_path=proto \
+	  proto/signerservice/signerservice.proto
+.PHONY: proto-gen
+
 #? clean: Remove kms build and coverage artifacts
 clean:
 	rm -f $(KMS_OUTPUT) $(KMS_COVERPROFILE) $(KMS_COVERHTML)
