@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package cosmos.kms.signerservice;
+
+option go_package = "github.com/cosmos/kms/gen/signerservice";
+
+service SignerService {
+    rpc GetKey(GetKeyRequest) returns (GetKeyResponse) {}
+    rpc GetKeys(GetKeysRequest) returns (GetKeysResponse) {}
+    rpc Sign(SignRequest) returns (SignResponse) {}
+}
+
+enum SignatureScheme {
+  ECDSA_SECP256K1 = 0;   // input: 32-byte digest;              output: 65-byte r‖s‖v (recoverable)
+  ED25519         = 1;   // input: message (hashed internally); output: 64-byte signature
+}
+
+message Payload {
+  oneof kind {
+    bytes generic = 1;
+  }
+}
+
+message Key {
+    string id = 1;
+    bytes pubkey = 2;
+    SignatureScheme scheme = 3;
+}
+
+
+message GetKeyRequest {
+    string id = 1;
+}
+
+message GetKeyResponse {
+    Key key = 1;
+}
+
+message GetKeysRequest {}
+
+message GetKeysResponse {
+    repeated Key keys = 1;
+}
+
+message SignRequest {
+    string key_id = 1;
+    Payload payload = 2;
+}
+
+message SignResponse {
+    bytes signature = 1;
+}
+
