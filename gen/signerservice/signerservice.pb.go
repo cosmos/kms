@@ -21,11 +21,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type SignatureScheme int32
+
+const (
+	SignatureScheme_ECDSA_SECP256K1 SignatureScheme = 0 // input: 32-byte digest;              output: 65-byte r‖s‖v (recoverable)
+	SignatureScheme_ED25519         SignatureScheme = 1 // input: message (hashed internally); output: 64-byte signature
+)
+
+// Enum value maps for SignatureScheme.
+var (
+	SignatureScheme_name = map[int32]string{
+		0: "ECDSA_SECP256K1",
+		1: "ED25519",
+	}
+	SignatureScheme_value = map[string]int32{
+		"ECDSA_SECP256K1": 0,
+		"ED25519":         1,
+	}
+)
+
+func (x SignatureScheme) Enum() *SignatureScheme {
+	p := new(SignatureScheme)
+	*p = x
+	return p
+}
+
+func (x SignatureScheme) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SignatureScheme) Descriptor() protoreflect.EnumDescriptor {
+	return file_signerservice_signerservice_proto_enumTypes[0].Descriptor()
+}
+
+func (SignatureScheme) Type() protoreflect.EnumType {
+	return &file_signerservice_signerservice_proto_enumTypes[0]
+}
+
+func (x SignatureScheme) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SignatureScheme.Descriptor instead.
+func (SignatureScheme) EnumDescriptor() ([]byte, []int) {
+	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{0}
+}
+
 type Key struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Pubkey        []byte                 `protobuf:"bytes,2,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
-	Algo          string                 `protobuf:"bytes,3,opt,name=algo,proto3" json:"algo,omitempty"`
+	Scheme        SignatureScheme        `protobuf:"varint,3,opt,name=scheme,proto3,enum=cosmos.kms.signerservice.SignatureScheme" json:"scheme,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -74,11 +120,11 @@ func (x *Key) GetPubkey() []byte {
 	return nil
 }
 
-func (x *Key) GetAlgo() string {
+func (x *Key) GetScheme() SignatureScheme {
 	if x != nil {
-		return x.Algo
+		return x.Scheme
 	}
-	return ""
+	return SignatureScheme_ECDSA_SECP256K1
 }
 
 type GetKeyRequest struct {
@@ -250,16 +296,10 @@ func (x *GetKeysResponse) GetKeys() []*Key {
 }
 
 type SignRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	KeyId string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
-	// Types that are valid to be assigned to Payload:
-	//
-	//	*SignRequest_EvmTransaction
-	//	*SignRequest_CosmosTransaction
-	//	*SignRequest_RawMessage
-	//	*SignRequest_SolanaTransaction
-	//	*SignRequest_RecoverableMessage
-	Payload       isSignRequest_Payload `protobuf_oneof:"payload"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyId         string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	Scheme        SignatureScheme        `protobuf:"varint,2,opt,name=scheme,proto3,enum=cosmos.kms.signerservice.SignatureScheme" json:"scheme,omitempty"`
+	Payload       []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -301,102 +341,24 @@ func (x *SignRequest) GetKeyId() string {
 	return ""
 }
 
-func (x *SignRequest) GetPayload() isSignRequest_Payload {
+func (x *SignRequest) GetScheme() SignatureScheme {
+	if x != nil {
+		return x.Scheme
+	}
+	return SignatureScheme_ECDSA_SECP256K1
+}
+
+func (x *SignRequest) GetPayload() []byte {
 	if x != nil {
 		return x.Payload
 	}
 	return nil
 }
 
-func (x *SignRequest) GetEvmTransaction() *EvmTransaction {
-	if x != nil {
-		if x, ok := x.Payload.(*SignRequest_EvmTransaction); ok {
-			return x.EvmTransaction
-		}
-	}
-	return nil
-}
-
-func (x *SignRequest) GetCosmosTransaction() *CosmosTransaction {
-	if x != nil {
-		if x, ok := x.Payload.(*SignRequest_CosmosTransaction); ok {
-			return x.CosmosTransaction
-		}
-	}
-	return nil
-}
-
-func (x *SignRequest) GetRawMessage() *RawMessage {
-	if x != nil {
-		if x, ok := x.Payload.(*SignRequest_RawMessage); ok {
-			return x.RawMessage
-		}
-	}
-	return nil
-}
-
-func (x *SignRequest) GetSolanaTransaction() *SolanaTransaction {
-	if x != nil {
-		if x, ok := x.Payload.(*SignRequest_SolanaTransaction); ok {
-			return x.SolanaTransaction
-		}
-	}
-	return nil
-}
-
-func (x *SignRequest) GetRecoverableMessage() *RecoverableMessage {
-	if x != nil {
-		if x, ok := x.Payload.(*SignRequest_RecoverableMessage); ok {
-			return x.RecoverableMessage
-		}
-	}
-	return nil
-}
-
-type isSignRequest_Payload interface {
-	isSignRequest_Payload()
-}
-
-type SignRequest_EvmTransaction struct {
-	EvmTransaction *EvmTransaction `protobuf:"bytes,2,opt,name=evm_transaction,json=evmTransaction,proto3,oneof"`
-}
-
-type SignRequest_CosmosTransaction struct {
-	CosmosTransaction *CosmosTransaction `protobuf:"bytes,3,opt,name=cosmos_transaction,json=cosmosTransaction,proto3,oneof"`
-}
-
-type SignRequest_RawMessage struct {
-	RawMessage *RawMessage `protobuf:"bytes,4,opt,name=raw_message,json=rawMessage,proto3,oneof"`
-}
-
-type SignRequest_SolanaTransaction struct {
-	SolanaTransaction *SolanaTransaction `protobuf:"bytes,5,opt,name=solana_transaction,json=solanaTransaction,proto3,oneof"`
-}
-
-type SignRequest_RecoverableMessage struct {
-	RecoverableMessage *RecoverableMessage `protobuf:"bytes,6,opt,name=recoverable_message,json=recoverableMessage,proto3,oneof"`
-}
-
-func (*SignRequest_EvmTransaction) isSignRequest_Payload() {}
-
-func (*SignRequest_CosmosTransaction) isSignRequest_Payload() {}
-
-func (*SignRequest_RawMessage) isSignRequest_Payload() {}
-
-func (*SignRequest_SolanaTransaction) isSignRequest_Payload() {}
-
-func (*SignRequest_RecoverableMessage) isSignRequest_Payload() {}
-
 type SignResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Signature:
-	//
-	//	*SignResponse_EvmSignature
-	//	*SignResponse_CosmosSignature
-	//	*SignResponse_RawSignature
-	//	*SignResponse_SolanaSignature
-	//	*SignResponse_RecoverableSignature
-	Signature     isSignResponse_Signature `protobuf_oneof:"signature"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Scheme        SignatureScheme        `protobuf:"varint,1,opt,name=scheme,proto3,enum=cosmos.kms.signerservice.SignatureScheme" json:"scheme,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -431,568 +393,16 @@ func (*SignResponse) Descriptor() ([]byte, []int) {
 	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *SignResponse) GetSignature() isSignResponse_Signature {
+func (x *SignResponse) GetScheme() SignatureScheme {
+	if x != nil {
+		return x.Scheme
+	}
+	return SignatureScheme_ECDSA_SECP256K1
+}
+
+func (x *SignResponse) GetSignature() []byte {
 	if x != nil {
 		return x.Signature
-	}
-	return nil
-}
-
-func (x *SignResponse) GetEvmSignature() *EvmTransactionSignature {
-	if x != nil {
-		if x, ok := x.Signature.(*SignResponse_EvmSignature); ok {
-			return x.EvmSignature
-		}
-	}
-	return nil
-}
-
-func (x *SignResponse) GetCosmosSignature() *CosmosTransactionSignature {
-	if x != nil {
-		if x, ok := x.Signature.(*SignResponse_CosmosSignature); ok {
-			return x.CosmosSignature
-		}
-	}
-	return nil
-}
-
-func (x *SignResponse) GetRawSignature() *RawMessageSignature {
-	if x != nil {
-		if x, ok := x.Signature.(*SignResponse_RawSignature); ok {
-			return x.RawSignature
-		}
-	}
-	return nil
-}
-
-func (x *SignResponse) GetSolanaSignature() *SolanaTransactionSignature {
-	if x != nil {
-		if x, ok := x.Signature.(*SignResponse_SolanaSignature); ok {
-			return x.SolanaSignature
-		}
-	}
-	return nil
-}
-
-func (x *SignResponse) GetRecoverableSignature() *RecoverableMessageSignature {
-	if x != nil {
-		if x, ok := x.Signature.(*SignResponse_RecoverableSignature); ok {
-			return x.RecoverableSignature
-		}
-	}
-	return nil
-}
-
-type isSignResponse_Signature interface {
-	isSignResponse_Signature()
-}
-
-type SignResponse_EvmSignature struct {
-	EvmSignature *EvmTransactionSignature `protobuf:"bytes,1,opt,name=evm_signature,json=evmSignature,proto3,oneof"`
-}
-
-type SignResponse_CosmosSignature struct {
-	CosmosSignature *CosmosTransactionSignature `protobuf:"bytes,2,opt,name=cosmos_signature,json=cosmosSignature,proto3,oneof"`
-}
-
-type SignResponse_RawSignature struct {
-	RawSignature *RawMessageSignature `protobuf:"bytes,3,opt,name=raw_signature,json=rawSignature,proto3,oneof"`
-}
-
-type SignResponse_SolanaSignature struct {
-	SolanaSignature *SolanaTransactionSignature `protobuf:"bytes,4,opt,name=solana_signature,json=solanaSignature,proto3,oneof"`
-}
-
-type SignResponse_RecoverableSignature struct {
-	RecoverableSignature *RecoverableMessageSignature `protobuf:"bytes,5,opt,name=recoverable_signature,json=recoverableSignature,proto3,oneof"`
-}
-
-func (*SignResponse_EvmSignature) isSignResponse_Signature() {}
-
-func (*SignResponse_CosmosSignature) isSignResponse_Signature() {}
-
-func (*SignResponse_RawSignature) isSignResponse_Signature() {}
-
-func (*SignResponse_SolanaSignature) isSignResponse_Signature() {}
-
-func (*SignResponse_RecoverableSignature) isSignResponse_Signature() {}
-
-type EvmTransaction struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChainId       string                 `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	TxBytes       []byte                 `protobuf:"bytes,2,opt,name=tx_bytes,json=txBytes,proto3" json:"tx_bytes,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *EvmTransaction) Reset() {
-	*x = EvmTransaction{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EvmTransaction) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EvmTransaction) ProtoMessage() {}
-
-func (x *EvmTransaction) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EvmTransaction.ProtoReflect.Descriptor instead.
-func (*EvmTransaction) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *EvmTransaction) GetChainId() string {
-	if x != nil {
-		return x.ChainId
-	}
-	return ""
-}
-
-func (x *EvmTransaction) GetTxBytes() []byte {
-	if x != nil {
-		return x.TxBytes
-	}
-	return nil
-}
-
-type EvmTransactionSignature struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	R             []byte                 `protobuf:"bytes,1,opt,name=r,proto3" json:"r,omitempty"`
-	S             []byte                 `protobuf:"bytes,2,opt,name=s,proto3" json:"s,omitempty"`
-	V             []byte                 `protobuf:"bytes,3,opt,name=v,proto3" json:"v,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *EvmTransactionSignature) Reset() {
-	*x = EvmTransactionSignature{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EvmTransactionSignature) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EvmTransactionSignature) ProtoMessage() {}
-
-func (x *EvmTransactionSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EvmTransactionSignature.ProtoReflect.Descriptor instead.
-func (*EvmTransactionSignature) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *EvmTransactionSignature) GetR() []byte {
-	if x != nil {
-		return x.R
-	}
-	return nil
-}
-
-func (x *EvmTransactionSignature) GetS() []byte {
-	if x != nil {
-		return x.S
-	}
-	return nil
-}
-
-func (x *EvmTransactionSignature) GetV() []byte {
-	if x != nil {
-		return x.V
-	}
-	return nil
-}
-
-type CosmosTransaction struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SignDocBytes  []byte                 `protobuf:"bytes,1,opt,name=sign_doc_bytes,json=signDocBytes,proto3" json:"sign_doc_bytes,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CosmosTransaction) Reset() {
-	*x = CosmosTransaction{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CosmosTransaction) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CosmosTransaction) ProtoMessage() {}
-
-func (x *CosmosTransaction) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CosmosTransaction.ProtoReflect.Descriptor instead.
-func (*CosmosTransaction) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *CosmosTransaction) GetSignDocBytes() []byte {
-	if x != nil {
-		return x.SignDocBytes
-	}
-	return nil
-}
-
-type CosmosTransactionSignature struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Signature     []byte                 `protobuf:"bytes,1,opt,name=signature,proto3" json:"signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CosmosTransactionSignature) Reset() {
-	*x = CosmosTransactionSignature{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CosmosTransactionSignature) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CosmosTransactionSignature) ProtoMessage() {}
-
-func (x *CosmosTransactionSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CosmosTransactionSignature.ProtoReflect.Descriptor instead.
-func (*CosmosTransactionSignature) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *CosmosTransactionSignature) GetSignature() []byte {
-	if x != nil {
-		return x.Signature
-	}
-	return nil
-}
-
-type RawMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       []byte                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RawMessage) Reset() {
-	*x = RawMessage{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RawMessage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RawMessage) ProtoMessage() {}
-
-func (x *RawMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RawMessage.ProtoReflect.Descriptor instead.
-func (*RawMessage) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *RawMessage) GetMessage() []byte {
-	if x != nil {
-		return x.Message
-	}
-	return nil
-}
-
-type RawMessageSignature struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Signature     []byte                 `protobuf:"bytes,1,opt,name=signature,proto3" json:"signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RawMessageSignature) Reset() {
-	*x = RawMessageSignature{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RawMessageSignature) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RawMessageSignature) ProtoMessage() {}
-
-func (x *RawMessageSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RawMessageSignature.ProtoReflect.Descriptor instead.
-func (*RawMessageSignature) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *RawMessageSignature) GetSignature() []byte {
-	if x != nil {
-		return x.Signature
-	}
-	return nil
-}
-
-type SolanaTransactionSignature struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Signature     []byte                 `protobuf:"bytes,1,opt,name=signature,proto3" json:"signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SolanaTransactionSignature) Reset() {
-	*x = SolanaTransactionSignature{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SolanaTransactionSignature) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SolanaTransactionSignature) ProtoMessage() {}
-
-func (x *SolanaTransactionSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[13]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SolanaTransactionSignature.ProtoReflect.Descriptor instead.
-func (*SolanaTransactionSignature) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{13}
-}
-
-func (x *SolanaTransactionSignature) GetSignature() []byte {
-	if x != nil {
-		return x.Signature
-	}
-	return nil
-}
-
-type SolanaTransaction struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Transaction   string                 `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"` // Base-64 encoded transaction
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SolanaTransaction) Reset() {
-	*x = SolanaTransaction{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SolanaTransaction) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SolanaTransaction) ProtoMessage() {}
-
-func (x *SolanaTransaction) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[14]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SolanaTransaction.ProtoReflect.Descriptor instead.
-func (*SolanaTransaction) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *SolanaTransaction) GetTransaction() string {
-	if x != nil {
-		return x.Transaction
-	}
-	return ""
-}
-
-type RecoverableMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       []byte                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RecoverableMessage) Reset() {
-	*x = RecoverableMessage{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RecoverableMessage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RecoverableMessage) ProtoMessage() {}
-
-func (x *RecoverableMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RecoverableMessage.ProtoReflect.Descriptor instead.
-func (*RecoverableMessage) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *RecoverableMessage) GetMessage() []byte {
-	if x != nil {
-		return x.Message
-	}
-	return nil
-}
-
-type RecoverableMessageSignature struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	R             []byte                 `protobuf:"bytes,1,opt,name=r,proto3" json:"r,omitempty"`
-	S             []byte                 `protobuf:"bytes,2,opt,name=s,proto3" json:"s,omitempty"`
-	V             []byte                 `protobuf:"bytes,3,opt,name=v,proto3" json:"v,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RecoverableMessageSignature) Reset() {
-	*x = RecoverableMessageSignature{}
-	mi := &file_signerservice_signerservice_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RecoverableMessageSignature) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RecoverableMessageSignature) ProtoMessage() {}
-
-func (x *RecoverableMessageSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_signerservice_signerservice_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RecoverableMessageSignature.ProtoReflect.Descriptor instead.
-func (*RecoverableMessageSignature) Descriptor() ([]byte, []int) {
-	return file_signerservice_signerservice_proto_rawDescGZIP(), []int{16}
-}
-
-func (x *RecoverableMessageSignature) GetR() []byte {
-	if x != nil {
-		return x.R
-	}
-	return nil
-}
-
-func (x *RecoverableMessageSignature) GetS() []byte {
-	if x != nil {
-		return x.S
-	}
-	return nil
-}
-
-func (x *RecoverableMessageSignature) GetV() []byte {
-	if x != nil {
-		return x.V
 	}
 	return nil
 }
@@ -1001,60 +411,28 @@ var File_signerservice_signerservice_proto protoreflect.FileDescriptor
 
 const file_signerservice_signerservice_proto_rawDesc = "" +
 	"\n" +
-	"!signerservice/signerservice.proto\x12\x18cosmos.kms.signerservice\"A\n" +
+	"!signerservice/signerservice.proto\x12\x18cosmos.kms.signerservice\"p\n" +
 	"\x03Key\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06pubkey\x18\x02 \x01(\fR\x06pubkey\x12\x12\n" +
-	"\x04algo\x18\x03 \x01(\tR\x04algo\"\x1f\n" +
+	"\x06pubkey\x18\x02 \x01(\fR\x06pubkey\x12A\n" +
+	"\x06scheme\x18\x03 \x01(\x0e2).cosmos.kms.signerservice.SignatureSchemeR\x06scheme\"\x1f\n" +
 	"\rGetKeyRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"A\n" +
 	"\x0eGetKeyResponse\x12/\n" +
 	"\x03key\x18\x01 \x01(\v2\x1d.cosmos.kms.signerservice.KeyR\x03key\"\x10\n" +
 	"\x0eGetKeysRequest\"D\n" +
 	"\x0fGetKeysResponse\x121\n" +
-	"\x04keys\x18\x01 \x03(\v2\x1d.cosmos.kms.signerservice.KeyR\x04keys\"\xea\x03\n" +
+	"\x04keys\x18\x01 \x03(\v2\x1d.cosmos.kms.signerservice.KeyR\x04keys\"\x81\x01\n" +
 	"\vSignRequest\x12\x15\n" +
-	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12S\n" +
-	"\x0fevm_transaction\x18\x02 \x01(\v2(.cosmos.kms.signerservice.EvmTransactionH\x00R\x0eevmTransaction\x12\\\n" +
-	"\x12cosmos_transaction\x18\x03 \x01(\v2+.cosmos.kms.signerservice.CosmosTransactionH\x00R\x11cosmosTransaction\x12G\n" +
-	"\vraw_message\x18\x04 \x01(\v2$.cosmos.kms.signerservice.RawMessageH\x00R\n" +
-	"rawMessage\x12\\\n" +
-	"\x12solana_transaction\x18\x05 \x01(\v2+.cosmos.kms.signerservice.SolanaTransactionH\x00R\x11solanaTransaction\x12_\n" +
-	"\x13recoverable_message\x18\x06 \x01(\v2,.cosmos.kms.signerservice.RecoverableMessageH\x00R\x12recoverableMessageB\t\n" +
-	"\apayload\"\xff\x03\n" +
-	"\fSignResponse\x12X\n" +
-	"\revm_signature\x18\x01 \x01(\v21.cosmos.kms.signerservice.EvmTransactionSignatureH\x00R\fevmSignature\x12a\n" +
-	"\x10cosmos_signature\x18\x02 \x01(\v24.cosmos.kms.signerservice.CosmosTransactionSignatureH\x00R\x0fcosmosSignature\x12T\n" +
-	"\rraw_signature\x18\x03 \x01(\v2-.cosmos.kms.signerservice.RawMessageSignatureH\x00R\frawSignature\x12a\n" +
-	"\x10solana_signature\x18\x04 \x01(\v24.cosmos.kms.signerservice.SolanaTransactionSignatureH\x00R\x0fsolanaSignature\x12l\n" +
-	"\x15recoverable_signature\x18\x05 \x01(\v25.cosmos.kms.signerservice.RecoverableMessageSignatureH\x00R\x14recoverableSignatureB\v\n" +
-	"\tsignature\"F\n" +
-	"\x0eEvmTransaction\x12\x19\n" +
-	"\bchain_id\x18\x01 \x01(\tR\achainId\x12\x19\n" +
-	"\btx_bytes\x18\x02 \x01(\fR\atxBytes\"C\n" +
-	"\x17EvmTransactionSignature\x12\f\n" +
-	"\x01r\x18\x01 \x01(\fR\x01r\x12\f\n" +
-	"\x01s\x18\x02 \x01(\fR\x01s\x12\f\n" +
-	"\x01v\x18\x03 \x01(\fR\x01v\"9\n" +
-	"\x11CosmosTransaction\x12$\n" +
-	"\x0esign_doc_bytes\x18\x01 \x01(\fR\fsignDocBytes\":\n" +
-	"\x1aCosmosTransactionSignature\x12\x1c\n" +
-	"\tsignature\x18\x01 \x01(\fR\tsignature\"&\n" +
-	"\n" +
-	"RawMessage\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\fR\amessage\"3\n" +
-	"\x13RawMessageSignature\x12\x1c\n" +
-	"\tsignature\x18\x01 \x01(\fR\tsignature\":\n" +
-	"\x1aSolanaTransactionSignature\x12\x1c\n" +
-	"\tsignature\x18\x01 \x01(\fR\tsignature\"5\n" +
-	"\x11SolanaTransaction\x12 \n" +
-	"\vtransaction\x18\x01 \x01(\tR\vtransaction\".\n" +
-	"\x12RecoverableMessage\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\fR\amessage\"G\n" +
-	"\x1bRecoverableMessageSignature\x12\f\n" +
-	"\x01r\x18\x01 \x01(\fR\x01r\x12\f\n" +
-	"\x01s\x18\x02 \x01(\fR\x01s\x12\f\n" +
-	"\x01v\x18\x03 \x01(\fR\x01v2\xa9\x02\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12A\n" +
+	"\x06scheme\x18\x02 \x01(\x0e2).cosmos.kms.signerservice.SignatureSchemeR\x06scheme\x12\x18\n" +
+	"\apayload\x18\x03 \x01(\fR\apayload\"o\n" +
+	"\fSignResponse\x12A\n" +
+	"\x06scheme\x18\x01 \x01(\x0e2).cosmos.kms.signerservice.SignatureSchemeR\x06scheme\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature*3\n" +
+	"\x0fSignatureScheme\x12\x13\n" +
+	"\x0fECDSA_SECP256K1\x10\x00\x12\v\n" +
+	"\aED25519\x10\x012\xa9\x02\n" +
 	"\rSignerService\x12]\n" +
 	"\x06GetKey\x12'.cosmos.kms.signerservice.GetKeyRequest\x1a(.cosmos.kms.signerservice.GetKeyResponse\"\x00\x12`\n" +
 	"\aGetKeys\x12(.cosmos.kms.signerservice.GetKeysRequest\x1a).cosmos.kms.signerservice.GetKeysResponse\"\x00\x12W\n" +
@@ -1072,50 +450,35 @@ func file_signerservice_signerservice_proto_rawDescGZIP() []byte {
 	return file_signerservice_signerservice_proto_rawDescData
 }
 
-var file_signerservice_signerservice_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_signerservice_signerservice_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_signerservice_signerservice_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_signerservice_signerservice_proto_goTypes = []any{
-	(*Key)(nil),                         // 0: cosmos.kms.signerservice.Key
-	(*GetKeyRequest)(nil),               // 1: cosmos.kms.signerservice.GetKeyRequest
-	(*GetKeyResponse)(nil),              // 2: cosmos.kms.signerservice.GetKeyResponse
-	(*GetKeysRequest)(nil),              // 3: cosmos.kms.signerservice.GetKeysRequest
-	(*GetKeysResponse)(nil),             // 4: cosmos.kms.signerservice.GetKeysResponse
-	(*SignRequest)(nil),                 // 5: cosmos.kms.signerservice.SignRequest
-	(*SignResponse)(nil),                // 6: cosmos.kms.signerservice.SignResponse
-	(*EvmTransaction)(nil),              // 7: cosmos.kms.signerservice.EvmTransaction
-	(*EvmTransactionSignature)(nil),     // 8: cosmos.kms.signerservice.EvmTransactionSignature
-	(*CosmosTransaction)(nil),           // 9: cosmos.kms.signerservice.CosmosTransaction
-	(*CosmosTransactionSignature)(nil),  // 10: cosmos.kms.signerservice.CosmosTransactionSignature
-	(*RawMessage)(nil),                  // 11: cosmos.kms.signerservice.RawMessage
-	(*RawMessageSignature)(nil),         // 12: cosmos.kms.signerservice.RawMessageSignature
-	(*SolanaTransactionSignature)(nil),  // 13: cosmos.kms.signerservice.SolanaTransactionSignature
-	(*SolanaTransaction)(nil),           // 14: cosmos.kms.signerservice.SolanaTransaction
-	(*RecoverableMessage)(nil),          // 15: cosmos.kms.signerservice.RecoverableMessage
-	(*RecoverableMessageSignature)(nil), // 16: cosmos.kms.signerservice.RecoverableMessageSignature
+	(SignatureScheme)(0),    // 0: cosmos.kms.signerservice.SignatureScheme
+	(*Key)(nil),             // 1: cosmos.kms.signerservice.Key
+	(*GetKeyRequest)(nil),   // 2: cosmos.kms.signerservice.GetKeyRequest
+	(*GetKeyResponse)(nil),  // 3: cosmos.kms.signerservice.GetKeyResponse
+	(*GetKeysRequest)(nil),  // 4: cosmos.kms.signerservice.GetKeysRequest
+	(*GetKeysResponse)(nil), // 5: cosmos.kms.signerservice.GetKeysResponse
+	(*SignRequest)(nil),     // 6: cosmos.kms.signerservice.SignRequest
+	(*SignResponse)(nil),    // 7: cosmos.kms.signerservice.SignResponse
 }
 var file_signerservice_signerservice_proto_depIdxs = []int32{
-	0,  // 0: cosmos.kms.signerservice.GetKeyResponse.key:type_name -> cosmos.kms.signerservice.Key
-	0,  // 1: cosmos.kms.signerservice.GetKeysResponse.keys:type_name -> cosmos.kms.signerservice.Key
-	7,  // 2: cosmos.kms.signerservice.SignRequest.evm_transaction:type_name -> cosmos.kms.signerservice.EvmTransaction
-	9,  // 3: cosmos.kms.signerservice.SignRequest.cosmos_transaction:type_name -> cosmos.kms.signerservice.CosmosTransaction
-	11, // 4: cosmos.kms.signerservice.SignRequest.raw_message:type_name -> cosmos.kms.signerservice.RawMessage
-	14, // 5: cosmos.kms.signerservice.SignRequest.solana_transaction:type_name -> cosmos.kms.signerservice.SolanaTransaction
-	15, // 6: cosmos.kms.signerservice.SignRequest.recoverable_message:type_name -> cosmos.kms.signerservice.RecoverableMessage
-	8,  // 7: cosmos.kms.signerservice.SignResponse.evm_signature:type_name -> cosmos.kms.signerservice.EvmTransactionSignature
-	10, // 8: cosmos.kms.signerservice.SignResponse.cosmos_signature:type_name -> cosmos.kms.signerservice.CosmosTransactionSignature
-	12, // 9: cosmos.kms.signerservice.SignResponse.raw_signature:type_name -> cosmos.kms.signerservice.RawMessageSignature
-	13, // 10: cosmos.kms.signerservice.SignResponse.solana_signature:type_name -> cosmos.kms.signerservice.SolanaTransactionSignature
-	16, // 11: cosmos.kms.signerservice.SignResponse.recoverable_signature:type_name -> cosmos.kms.signerservice.RecoverableMessageSignature
-	1,  // 12: cosmos.kms.signerservice.SignerService.GetKey:input_type -> cosmos.kms.signerservice.GetKeyRequest
-	3,  // 13: cosmos.kms.signerservice.SignerService.GetKeys:input_type -> cosmos.kms.signerservice.GetKeysRequest
-	5,  // 14: cosmos.kms.signerservice.SignerService.Sign:input_type -> cosmos.kms.signerservice.SignRequest
-	2,  // 15: cosmos.kms.signerservice.SignerService.GetKey:output_type -> cosmos.kms.signerservice.GetKeyResponse
-	4,  // 16: cosmos.kms.signerservice.SignerService.GetKeys:output_type -> cosmos.kms.signerservice.GetKeysResponse
-	6,  // 17: cosmos.kms.signerservice.SignerService.Sign:output_type -> cosmos.kms.signerservice.SignResponse
-	15, // [15:18] is the sub-list for method output_type
-	12, // [12:15] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	0, // 0: cosmos.kms.signerservice.Key.scheme:type_name -> cosmos.kms.signerservice.SignatureScheme
+	1, // 1: cosmos.kms.signerservice.GetKeyResponse.key:type_name -> cosmos.kms.signerservice.Key
+	1, // 2: cosmos.kms.signerservice.GetKeysResponse.keys:type_name -> cosmos.kms.signerservice.Key
+	0, // 3: cosmos.kms.signerservice.SignRequest.scheme:type_name -> cosmos.kms.signerservice.SignatureScheme
+	0, // 4: cosmos.kms.signerservice.SignResponse.scheme:type_name -> cosmos.kms.signerservice.SignatureScheme
+	2, // 5: cosmos.kms.signerservice.SignerService.GetKey:input_type -> cosmos.kms.signerservice.GetKeyRequest
+	4, // 6: cosmos.kms.signerservice.SignerService.GetKeys:input_type -> cosmos.kms.signerservice.GetKeysRequest
+	6, // 7: cosmos.kms.signerservice.SignerService.Sign:input_type -> cosmos.kms.signerservice.SignRequest
+	3, // 8: cosmos.kms.signerservice.SignerService.GetKey:output_type -> cosmos.kms.signerservice.GetKeyResponse
+	5, // 9: cosmos.kms.signerservice.SignerService.GetKeys:output_type -> cosmos.kms.signerservice.GetKeysResponse
+	7, // 10: cosmos.kms.signerservice.SignerService.Sign:output_type -> cosmos.kms.signerservice.SignResponse
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_signerservice_signerservice_proto_init() }
@@ -1123,32 +486,19 @@ func file_signerservice_signerservice_proto_init() {
 	if File_signerservice_signerservice_proto != nil {
 		return
 	}
-	file_signerservice_signerservice_proto_msgTypes[5].OneofWrappers = []any{
-		(*SignRequest_EvmTransaction)(nil),
-		(*SignRequest_CosmosTransaction)(nil),
-		(*SignRequest_RawMessage)(nil),
-		(*SignRequest_SolanaTransaction)(nil),
-		(*SignRequest_RecoverableMessage)(nil),
-	}
-	file_signerservice_signerservice_proto_msgTypes[6].OneofWrappers = []any{
-		(*SignResponse_EvmSignature)(nil),
-		(*SignResponse_CosmosSignature)(nil),
-		(*SignResponse_RawSignature)(nil),
-		(*SignResponse_SolanaSignature)(nil),
-		(*SignResponse_RecoverableSignature)(nil),
-	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_signerservice_signerservice_proto_rawDesc), len(file_signerservice_signerservice_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   17,
+			NumEnums:      1,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_signerservice_signerservice_proto_goTypes,
 		DependencyIndexes: file_signerservice_signerservice_proto_depIdxs,
+		EnumInfos:         file_signerservice_signerservice_proto_enumTypes,
 		MessageInfos:      file_signerservice_signerservice_proto_msgTypes,
 	}.Build()
 	File_signerservice_signerservice_proto = out.File

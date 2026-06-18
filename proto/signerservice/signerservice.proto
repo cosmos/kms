@@ -10,11 +10,17 @@ service SignerService {
     rpc Sign(SignRequest) returns (SignResponse) {}
 }
 
+enum SignatureScheme {
+  ECDSA_SECP256K1 = 0;   // input: 32-byte digest;              output: 65-byte r‖s‖v (recoverable)
+  ED25519         = 1;   // input: message (hashed internally); output: 64-byte signature
+}
+
 message Key {
     string id = 1;
     bytes pubkey = 2;
-    string algo = 3;
+    SignatureScheme scheme = 3;
 }
+
 
 message GetKeyRequest {
     string id = 1;
@@ -32,66 +38,12 @@ message GetKeysResponse {
 
 message SignRequest {
     string key_id = 1;
-    oneof payload {
-        EvmTransaction evm_transaction = 2;
-        CosmosTransaction cosmos_transaction = 3;
-        RawMessage raw_message = 4;
-        SolanaTransaction solana_transaction = 5;
-        RecoverableMessage recoverable_message = 6;
-    }
+    SignatureScheme scheme = 2;
+    bytes payload = 3;
 }
 
 message SignResponse {
-    oneof signature {
-        EvmTransactionSignature evm_signature = 1;
-        CosmosTransactionSignature cosmos_signature = 2;
-        RawMessageSignature raw_signature = 3;
-        SolanaTransactionSignature solana_signature = 4;
-        RecoverableMessageSignature recoverable_signature = 5;
-    }
+    SignatureScheme scheme = 1;
+    bytes signature = 2;
 }
 
-message EvmTransaction {
-    string chain_id = 1;
-    bytes tx_bytes = 2;
-}
-
-message EvmTransactionSignature {
-    bytes r = 1;
-    bytes s = 2;
-    bytes v = 3;
-}
-
-message CosmosTransaction {
-    bytes sign_doc_bytes = 1;
-}
-
-message CosmosTransactionSignature {
-    bytes signature = 1;
-}
-
-message RawMessage {
-    bytes message = 1;
-}
-
-message RawMessageSignature {
-    bytes signature = 1;
-}
-
-message SolanaTransactionSignature {
-    bytes signature = 1;
-}
-
-message SolanaTransaction {
-    string transaction = 1; // Base-64 encoded transaction
-}
-
-message RecoverableMessage {
-    bytes message = 1;
-}
-
-message RecoverableMessageSignature {
-    bytes r = 1;
-    bytes s = 2;
-    bytes v = 3;
-}
