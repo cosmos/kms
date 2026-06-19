@@ -6,9 +6,9 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/app"
 	"github.com/cosmos/kms/signing/pkcs11/pkcs11test"
-	"github.com/cosmos/kms/config"
 )
 
 // TestBuildWiresPKCS11Backend verifies a pkcs11-backend key is opened and

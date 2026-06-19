@@ -10,8 +10,8 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/kms/internal/app"
 	"github.com/cosmos/kms/config"
+	"github.com/cosmos/kms/internal/app"
 )
 
 func TestBuildWiresChainSigners(t *testing.T) {

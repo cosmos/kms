@@ -29,10 +29,11 @@ linters:
             - github.com/libp2p/go-libp2p
             - github.com/miekg/pkcs11
             - github.com/aws/aws-sdk-go-v2
-            - github.com/BurntSushi/toml
             - github.com/spf13/cobra
             - github.com/stretchr/testify
             - github.com/decred/dcrd/dcrec/secp256k1
+            - google.golang.org/grpc
+            - gopkg.in/yaml.v3
         test:
           files:
             - $test
@@ -43,10 +44,11 @@ linters:
             - github.com/libp2p/go-libp2p
             - github.com/miekg/pkcs11
             - github.com/aws/aws-sdk-go-v2
-            - github.com/BurntSushi/toml
             - github.com/spf13/cobra
             - github.com/stretchr/testify
             - github.com/decred/dcrd/dcrec/secp256k1
+            - google.golang.org/grpc
+            - gopkg.in/yaml.v3
     dogsled:
       max-blank-identifiers: 3
     gosec:
