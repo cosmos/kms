@@ -1,10 +1,10 @@
 # kms configuration
 
-chain:
+chains:
   - id: my-chain-1
     # state_file defaults to <home>/state/<id>.json if omitted
 
-validator:
+validators:
   - chain_id: my-chain-1
     addr: tcp://127.0.0.1:26659
     identity_key: identity.json
@@ -43,7 +43,7 @@ keys:
 #   listen: 0.0.0.0:9090
 #   tls_cert: server.crt
 #   tls_key: server.key
-#   key:
+#   keys:
 #     - id: attestor-1
 #       backend: file       # optional; default "file"
 #       algorithm: secp256k1     # optional; default "secp256k1"

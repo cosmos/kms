@@ -14,10 +14,10 @@ import (
 // appended under that key's list item and must be indented 4 spaces.
 func awskmsCfg(extra string) string {
 	return `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: i
@@ -66,10 +66,10 @@ func TestAWSKMSUnknownAlgorithm(t *testing.T) {
 func TestAWSKMSUnknownChain(t *testing.T) {
 	home := t.TempDir()
 	body := `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: i
@@ -90,10 +90,10 @@ keys:
 func TestAWSKMSNoChainIDs(t *testing.T) {
 	home := t.TempDir()
 	body := `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: i

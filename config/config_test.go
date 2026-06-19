@@ -13,11 +13,11 @@ import (
 )
 
 const good = `
-chain:
+chains:
   - id: cosmoshub-4
     state_file: STATE
 
-validator:
+validators:
   - chain_id: cosmoshub-4
     addr: tcp://127.0.0.1:26659
     identity_key: IDENT
@@ -49,10 +49,10 @@ func TestLoadAndValidateGood(t *testing.T) {
 
 func TestStateFileDefaultsWhenOmitted(t *testing.T) {
 	body := `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: i
@@ -70,10 +70,10 @@ keys:
 
 func TestRelativeKeyPathsResolvedAgainstHome(t *testing.T) {
 	body := `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: identity.json
@@ -95,10 +95,10 @@ func TestAbsoluteKeyPathsLeftUnchanged(t *testing.T) {
 	absIdent := filepath.Join(t.TempDir(), "abs-identity.json")
 	absKey := filepath.Join(t.TempDir(), "abs-key.json")
 	body := `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: "` + absIdent + `"
@@ -118,9 +118,9 @@ keys:
 
 func TestValidatorReferencesUnknownChain(t *testing.T) {
 	body := `
-chain:
+chains:
   - id: c1
-validator:
+validators:
   - chain_id: nope
     addr: tcp://127.0.0.1:1
     identity_key: i
@@ -136,9 +136,9 @@ keys:
 
 func TestChainWithoutBackendRejected(t *testing.T) {
 	body := `
-chain:
+chains:
   - id: c1
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: i

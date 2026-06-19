@@ -22,10 +22,10 @@ func writeModule(t *testing.T, home string) string {
 // appended under that key's list item and must be indented 4 spaces.
 func pkcs11Cfg(module, extra string) string {
 	return `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: i
@@ -153,10 +153,10 @@ func TestPKCS11RelativePathsResolvedAgainstHome(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(home, "mod.so"), []byte("x"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(home, "pin.txt"), []byte("1234"), 0o600))
 	body := `
-chain:
+chains:
   - id: c1
 
-validator:
+validators:
   - chain_id: c1
     addr: tcp://127.0.0.1:1
     identity_key: i

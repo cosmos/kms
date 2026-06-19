@@ -19,8 +19,8 @@ var DefaultTemplate string
 
 // Config is the top-level kms configuration.
 type Config struct {
-	Chains     []Chain     `yaml:"chain"`
-	Validators []Validator `yaml:"validator"`
+	Chains     []Chain     `yaml:"chains"`
+	Validators []Validator `yaml:"validators"`
 	Keys       []Key       `yaml:"keys"`
 	GRPC       *GRPCConfig `yaml:"grpc"`
 }
@@ -140,7 +140,7 @@ type GRPCConfig struct {
 	Listen  string    `yaml:"listen"`   // host:port to listen on
 	TLSCert string    `yaml:"tls_cert"` // server TLS certificate file
 	TLSKey  string    `yaml:"tls_key"`  // server TLS private key file
-	Keys    []GRPCKey `yaml:"key"`
+	Keys    []GRPCKey `yaml:"keys"`
 }
 
 // GRPCKey binds a signing key to a key_id. Backend selects the custodian and
