@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"path/filepath"
 
 	"github.com/cometbft/cometbft/libs/log"
 	"google.golang.org/grpc"
@@ -186,7 +185,7 @@ func BuildGRPC(c *config.Config, home string, logger log.Logger) (*grpc.Server, 
 	}
 	srv := signerservice.NewServer(keys)
 
-	creds, err := credentials.NewServerTLSFromFile(absPath(home, g.TLSCert), absPath(home, g.TLSKey))
+	creds, err := credentials.NewServerTLSFromFile(config.AbsPath(home, g.TLSCert), config.AbsPath(home, g.TLSKey))
 	if err != nil {
 		return nil, nil, fmt.Errorf("app: grpc tls: %w", err)
 	}
@@ -214,16 +213,8 @@ func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	}
 	switch {
 	case be == "file" && algo == "secp256k1":
-		return file.LoadSecp256k1FromFile(absPath(home, k.KeyFile))
+		return file.LoadSecp256k1FromFile(config.AbsPath(home, k.KeyFile))
 	default:
 		return nil, fmt.Errorf("app: grpc key %q: unsupported backend/algorithm %q/%q", k.ID, be, algo)
 	}
-}
-
-// absPath resolves p against home unless it is already absolute or empty.
-func absPath(home, p string) string {
-	if p == "" || filepath.IsAbs(p) {
-		return p
-	}
-	return filepath.Join(home, p)
 }

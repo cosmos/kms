@@ -44,8 +44,8 @@ func (c *Config) Validate(home string) error {
 		sf := c.Chains[i].StateFile
 		if sf == "" {
 			sf = filepath.Join(home, "state", c.Chains[i].ID+".json")
-		} else if !filepath.IsAbs(sf) {
-			sf = filepath.Join(home, sf)
+		} else {
+			sf = AbsPath(home, sf)
 		}
 		if err := os.MkdirAll(filepath.Dir(sf), 0o700); err != nil {
 			return fmt.Errorf("config: state dir for chain %q: %w", c.Chains[i].ID, err)
@@ -73,9 +73,7 @@ func (c *Config) Validate(home string) error {
 		}
 		// Resolve relative identity_key against home so app.Build consumes the
 		// resolved path (CWD-relative resolution would silently mint a new key).
-		if !filepath.IsAbs(v.IdentityKey) {
-			c.Validators[i].IdentityKey = filepath.Join(home, v.IdentityKey)
-		}
+		c.Validators[i].IdentityKey = AbsPath(home, v.IdentityKey)
 	}
 
 	// Every key references known chains; collect which chains have a backend.
@@ -132,9 +130,7 @@ func (c *Config) validateFileKey(i int, home string) error {
 	if k.KeyFile == "" {
 		return fmt.Errorf("config: key[%d] (file) has empty key_file", i)
 	}
-	if !filepath.IsAbs(k.KeyFile) {
-		k.KeyFile = filepath.Join(home, k.KeyFile)
-	}
+	k.KeyFile = AbsPath(home, k.KeyFile)
 	return nil
 }
 
@@ -182,12 +178,8 @@ func (c *Config) validatePKCS11Key(i int, home string) error {
 	}
 
 	// Resolve relative paths against home before checking the module is readable.
-	if !filepath.IsAbs(k.Module) {
-		k.Module = filepath.Join(home, k.Module)
-	}
-	if k.PINFile != "" && !filepath.IsAbs(k.PINFile) {
-		k.PINFile = filepath.Join(home, k.PINFile)
-	}
+	k.Module = AbsPath(home, k.Module)
+	k.PINFile = AbsPath(home, k.PINFile)
 	if _, err := os.Stat(k.Module); err != nil {
 		return fmt.Errorf("config: key[%d] (pkcs11) module %q not readable: %w", i, k.Module, err)
 	}
@@ -227,13 +219,13 @@ func (c *Config) validateGRPC(home string) error {
 	if g.TLSCert == "" {
 		return fmt.Errorf("config: grpc.tls_cert is required")
 	}
-	if _, err := os.Stat(absPath(home, g.TLSCert)); err != nil {
+	if _, err := os.Stat(AbsPath(home, g.TLSCert)); err != nil {
 		return fmt.Errorf("config: grpc.tls_cert %q: %w", g.TLSCert, err)
 	}
 	if g.TLSKey == "" {
 		return fmt.Errorf("config: grpc.tls_key is required")
 	}
-	if _, err := os.Stat(absPath(home, g.TLSKey)); err != nil {
+	if _, err := os.Stat(AbsPath(home, g.TLSKey)); err != nil {
 		return fmt.Errorf("config: grpc.tls_key %q: %w", g.TLSKey, err)
 	}
 	if len(g.Keys) == 0 {
@@ -251,17 +243,9 @@ func (c *Config) validateGRPC(home string) error {
 		if k.KeyFile == "" {
 			return fmt.Errorf("config: grpc.key[%d].key_file is required", i)
 		}
-		if _, err := os.Stat(absPath(home, k.KeyFile)); err != nil {
+		if _, err := os.Stat(AbsPath(home, k.KeyFile)); err != nil {
 			return fmt.Errorf("config: grpc.key[%d].key_file %q: %w", i, k.KeyFile, err)
 		}
 	}
 	return nil
-}
-
-// absPath resolves p against home unless it is already absolute or empty.
-func absPath(home, p string) string {
-	if p == "" || filepath.IsAbs(p) {
-		return p
-	}
-	return filepath.Join(home, p)
 }
