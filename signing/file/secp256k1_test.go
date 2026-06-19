@@ -1,4 +1,4 @@
-package softsign
+package file
 
 import (
 	"crypto/sha256"

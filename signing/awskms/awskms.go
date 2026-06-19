@@ -1,4 +1,4 @@
-// Package awskms implements a backend.Signer backed by an AWS KMS asymmetric
+// Package awskms implements a signing key backed by an AWS KMS asymmetric
 // key. The private key never leaves KMS: signing is performed by the KMS Sign
 // API. Ed25519 (ECC_NIST_EDWARDS25519 + ED25519_SHA_512, PureEdDSA over the
 // canonical sign-bytes) is the only key algorithm today; see algo.go for the
@@ -15,10 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 
 	"github.com/cometbft/cometbft/crypto"
-	"github.com/cosmos/kms/internal/backend"
 )
-
-var _ backend.Signer = (*Signer)(nil)
 
 // Config describes how to reach a signing key in AWS KMS. Credentials are
 // resolved by the standard AWS default chain (environment, shared config, SSO,
@@ -41,7 +38,7 @@ type kmsAPI interface {
 // The concrete AWS KMS client must satisfy the interface we depend on.
 var _ kmsAPI = (*kms.Client)(nil)
 
-// Signer is a backend.Signer that signs via the AWS KMS Sign API. It is
+// Signer signs via the AWS KMS Sign API. It is
 // stateless beyond the cached public key and is safe for concurrent use (the
 // AWS SDK client is concurrency-safe).
 type Signer struct {

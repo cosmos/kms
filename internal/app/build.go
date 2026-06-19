@@ -6,18 +6,24 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
+	"path/filepath"
 
 	"github.com/cometbft/cometbft/libs/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
-	"github.com/cosmos/kms/internal/backend"
-	"github.com/cosmos/kms/internal/backend/awskms"
-	"github.com/cosmos/kms/internal/backend/pkcs11"
-	"github.com/cosmos/kms/internal/backend/softsign"
-	"github.com/cosmos/kms/internal/config"
+	"github.com/cosmos/kms/config"
+	gensignerservice "github.com/cosmos/kms/gen/signerservice"
 	"github.com/cosmos/kms/internal/identity"
 	"github.com/cosmos/kms/internal/manager"
 	"github.com/cosmos/kms/internal/signer"
+	"github.com/cosmos/kms/internal/signerservice"
 	"github.com/cosmos/kms/internal/transport"
+	"github.com/cosmos/kms/signing"
+	"github.com/cosmos/kms/signing/awskms"
+	"github.com/cosmos/kms/signing/file"
+	"github.com/cosmos/kms/signing/pkcs11"
 )
 
 // Build constructs a Manager from a validated config. The returned cleanup
@@ -40,65 +46,16 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 	}()
 
 	// chainID -> backend (one backend per chain).
-	backends := map[string]backend.Signer{}
-	for _, p := range c.Providers.Softsign {
-		s, lerr := softsign.Load(p.KeyFile)
-		if lerr != nil {
-			return nil, cleanup, lerr
+	backends := map[string]signing.Backend{}
+	for _, k := range c.Keys {
+		s, closer, berr := newPrivvalBackend(k)
+		if berr != nil {
+			return nil, cleanup, berr
 		}
-		for _, id := range p.ChainIDs {
-			if _, dup := backends[id]; dup {
-				return nil, cleanup, fmt.Errorf("app: multiple backends bound to chain %q", id)
-			}
-			backends[id] = s
+		if closer != nil {
+			closers = append(closers, closer)
 		}
-	}
-
-	for _, p := range c.Providers.PKCS11 {
-		var keyID []byte
-		if p.KeyID != "" {
-			keyID, err = hex.DecodeString(p.KeyID)
-			if err != nil {
-				return nil, cleanup, fmt.Errorf("app: pkcs11 provider key_id %q: %w", p.KeyID, err)
-			}
-		}
-		s, oerr := pkcs11.Open(pkcs11.Config{
-			Module:     p.Module,
-			TokenLabel: p.TokenLabel,
-			Slot:       p.Slot,
-			KeyLabel:   p.KeyLabel,
-			KeyID:      keyID,
-			PIN:        p.PIN,
-			PINEnv:     p.PINEnv,
-			PINFile:    p.PINFile,
-			Algorithm:  p.Algorithm,
-		})
-		if oerr != nil {
-			return nil, cleanup, oerr
-		}
-		closers = append(closers, s)
-		for _, id := range p.ChainIDs {
-			if _, dup := backends[id]; dup {
-				return nil, cleanup, fmt.Errorf("app: multiple backends bound to chain %q", id)
-			}
-			backends[id] = s
-		}
-	}
-
-	for _, p := range c.Providers.AWSKMS {
-		s, oerr := awskms.Open(context.Background(), awskms.Config{
-			KeyID:     p.KeyID,
-			Region:    p.Region,
-			Profile:   p.Profile,
-			Endpoint:  p.Endpoint,
-			Algorithm: p.Algorithm,
-		})
-		if oerr != nil {
-			return nil, cleanup, oerr
-		}
-		// awskms holds no closable resource (unlike pkcs11), so it is not added
-		// to closers.
-		for _, id := range p.ChainIDs {
+		for _, id := range k.ChainIDs {
 			if _, dup := backends[id]; dup {
 				return nil, cleanup, fmt.Errorf("app: multiple backends bound to chain %q", id)
 			}
@@ -122,7 +79,7 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 		signers[id] = cs
 	}
 
-	// One ValidatorConn per [[validator]]; validators of a chain share its signer.
+	// One ValidatorConn per validator entry; validators of a chain share its signer.
 	var conns []manager.ValidatorConn
 	for _, v := range c.Validators {
 		cs, ok := signers[v.ChainID]
@@ -155,4 +112,118 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 	}
 
 	return manager.New(logger, conns), cleanup, nil
+}
+
+// newPrivvalBackend constructs the signing backend for one config key. The
+// returned io.Closer is non-nil only for backends that hold OS resources
+// (pkcs11) and must be closed on shutdown.
+func newPrivvalBackend(k config.Key) (signing.Backend, io.Closer, error) {
+	switch k.Backend {
+	case config.BackendFile:
+		s, err := file.Load(k.KeyFile)
+		if err != nil {
+			return nil, nil, err
+		}
+		return s, nil, nil
+	case config.BackendPKCS11:
+		var keyID []byte
+		if k.KeyID != "" {
+			var derr error
+			if keyID, derr = hex.DecodeString(k.KeyID); derr != nil {
+				return nil, nil, fmt.Errorf("app: pkcs11 key_id %q: %w", k.KeyID, derr)
+			}
+		}
+		s, err := pkcs11.Open(pkcs11.Config{
+			Module:     k.Module,
+			TokenLabel: k.TokenLabel,
+			Slot:       k.Slot,
+			KeyLabel:   k.KeyLabel,
+			KeyID:      keyID,
+			PIN:        k.PIN,
+			PINEnv:     k.PINEnv,
+			PINFile:    k.PINFile,
+			Algorithm:  k.Algorithm,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		return s, s, nil
+	case config.BackendAWSKMS:
+		s, err := awskms.Open(context.Background(), awskms.Config{
+			KeyID:     k.KeyID,
+			Region:    k.Region,
+			Profile:   k.Profile,
+			Endpoint:  k.Endpoint,
+			Algorithm: k.Algorithm,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		return s, nil, nil
+	default:
+		return nil, nil, fmt.Errorf("app: key for chains %v has unknown backend %q", k.ChainIDs, k.Backend)
+	}
+}
+
+// BuildGRPC constructs the SignerService gRPC server and its listener from the
+// grpc config. Returns (nil, nil, nil) when no grpc block is configured.
+// The caller owns starting/stopping the server and closing the listener.
+func BuildGRPC(c *config.Config, home string, logger log.Logger) (*grpc.Server, net.Listener, error) {
+	if c.GRPC == nil {
+		return nil, nil, nil
+	}
+	g := c.GRPC
+
+	// keyID -> signing.Signer. The server performs no caller auth: any client
+	// reaching the listener may use any key (see signerservice.Server).
+	keys := map[string]signing.Key{}
+	for _, k := range g.Keys {
+		s, err := newGRPCSigner(home, k)
+		if err != nil {
+			return nil, nil, err
+		}
+		keys[k.ID] = signing.Key{ID: k.ID, Signer: s}
+	}
+	srv := signerservice.NewServer(keys)
+
+	creds, err := credentials.NewServerTLSFromFile(absPath(home, g.TLSCert), absPath(home, g.TLSKey))
+	if err != nil {
+		return nil, nil, fmt.Errorf("app: grpc tls: %w", err)
+	}
+	gs := grpc.NewServer(grpc.Creds(creds))
+	gensignerservice.RegisterSignerServiceServer(gs, srv)
+
+	lis, err := net.Listen("tcp", g.Listen)
+	if err != nil {
+		return nil, nil, fmt.Errorf("app: grpc listen %q: %w", g.Listen, err)
+	}
+	logger.Info("signerservice gRPC server configured", "listen", g.Listen, "keys", len(keys))
+	return gs, lis, nil
+}
+
+// newGRPCSigner constructs the signing.Signer for one grpc.key entry from its
+// backend/algorithm. Empty backend/algorithm default to file/secp256k1, the
+// only implemented combination.
+func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
+	be, algo := k.Backend, k.Algorithm
+	if be == "" {
+		be = "file"
+	}
+	if algo == "" {
+		algo = "secp256k1"
+	}
+	switch {
+	case be == "file" && algo == "secp256k1":
+		return file.LoadSecp256k1FromFile(absPath(home, k.KeyFile))
+	default:
+		return nil, fmt.Errorf("app: grpc key %q: unsupported backend/algorithm %q/%q", k.ID, be, algo)
+	}
+}
+
+// absPath resolves p against home unless it is already absolute or empty.
+func absPath(home, p string) string {
+	if p == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(home, p)
 }

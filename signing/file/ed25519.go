@@ -1,6 +1,6 @@
-// Package softsign implements an in-memory, file-backed Ed25519 backend.Signer.
-// NOT for production custody: the private key is held in process memory.
-package softsign
+// Package file implements file-backed signing keys read from disk into process
+// memory. NOT for production custody: the private key is held in memory.
+package file
 
 import (
 	"bytes"
@@ -12,17 +12,13 @@ import (
 	"github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
-
-	"github.com/cosmos/kms/internal/backend"
 )
 
-// Signer is a softsign backend holding an Ed25519 private key in memory.
+// Signer is a file-backed Ed25519 key held in memory.
 type Signer struct {
 	priv crypto.PrivKey
 	pub  crypto.PubKey
 }
-
-var _ backend.Signer = (*Signer)(nil)
 
 // Load reads a key file. It accepts either a CometBFT priv_validator_key.json
 // (typed JSON with a "priv_key" field) or a file containing the base64-encoded
@@ -30,12 +26,12 @@ var _ backend.Signer = (*Signer)(nil)
 func Load(path string) (*Signer, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("softsign: read key file %q: %w", path, err)
+		return nil, fmt.Errorf("file: read key file %q: %w", path, err)
 	}
 
 	priv, err := parseKey(raw)
 	if err != nil {
-		return nil, fmt.Errorf("softsign: parse key file %q: %w", path, err)
+		return nil, fmt.Errorf("file: parse key file %q: %w", path, err)
 	}
 	return &Signer{priv: priv, pub: priv.PubKey()}, nil
 }
@@ -69,10 +65,10 @@ func parseKey(raw []byte) (crypto.PrivKey, error) {
 	return ed25519.PrivKey(dec), nil
 }
 
-// PubKey implements backend.Signer.
+// PubKey returns the public key.
 func (s *Signer) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
 
-// Sign implements backend.Signer.
+// Sign signs signBytes with the in-memory private key.
 func (s *Signer) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
 	return s.priv.Sign(signBytes)
 }

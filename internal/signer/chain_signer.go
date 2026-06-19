@@ -12,7 +12,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cometbft/cometbft/types"
 
-	"github.com/cosmos/kms/internal/backend"
+	"github.com/cosmos/kms/signing"
 )
 
 // ChainSigner signs consensus messages for one chain, enforcing double-sign
@@ -31,7 +31,7 @@ var _ types.PrivValidator = (*ChainSigner)(nil)
 // and handed to privval.NewFilePV; any pre-existing sign-state at stateFile is
 // reloaded so double-sign protection survives restarts. The directory containing
 // stateFile must already exist (config validation guarantees this).
-func NewChainSigner(chainID string, be backend.Signer, stateFile string) (*ChainSigner, error) {
+func NewChainSigner(chainID string, be signing.Backend, stateFile string) (*ChainSigner, error) {
 	adapter, err := newBackendPrivKey(context.Background(), be)
 	if err != nil {
 		return nil, fmt.Errorf("chain %q: load pubkey: %w", chainID, err)

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/kms/internal/app"
-	"github.com/cosmos/kms/internal/config"
+	"github.com/cosmos/kms/config"
 )
 
 func TestBuildWiresChainSigners(t *testing.T) {
@@ -29,7 +29,7 @@ func TestBuildWiresChainSigners(t *testing.T) {
 	c := &config.Config{
 		Chains:     []config.Chain{{ID: "c1"}},
 		Validators: []config.Validator{{ChainID: "c1", Addr: "tcp://127.0.0.1:1", IdentityKey: identPath}},
-		Providers:  config.Providers{Softsign: []config.SoftsignProvider{{ChainIDs: []string{"c1"}, KeyFile: keyPath}}},
+		Keys:       []config.Key{{ChainIDs: []string{"c1"}, Backend: config.BackendFile, FileConfig: config.FileConfig{KeyFile: keyPath}}},
 	}
 	require.NoError(t, c.Validate(home))
 
@@ -44,7 +44,7 @@ func TestBuildFailsOnMissingKeyFile(t *testing.T) {
 	c := &config.Config{
 		Chains:     []config.Chain{{ID: "c1"}},
 		Validators: []config.Validator{{ChainID: "c1", Addr: "tcp://127.0.0.1:1", IdentityKey: filepath.Join(home, "id.json")}},
-		Providers:  config.Providers{Softsign: []config.SoftsignProvider{{ChainIDs: []string{"c1"}, KeyFile: filepath.Join(home, "missing.json")}}},
+		Keys:       []config.Key{{ChainIDs: []string{"c1"}, Backend: config.BackendFile, FileConfig: config.FileConfig{KeyFile: filepath.Join(home, "missing.json")}}},
 	}
 	require.NoError(t, c.Validate(home))
 	_, cleanup, err := app.Build(c, log.TestingLogger())

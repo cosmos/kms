@@ -12,7 +12,7 @@ func TestInitCreatesConfigAndIdentity(t *testing.T) {
 	home := t.TempDir()
 	require.NoError(t, runInit(home))
 
-	_, err := os.Stat(filepath.Join(home, "kms.toml"))
+	_, err := os.Stat(filepath.Join(home, "kms.yaml"))
 	require.NoError(t, err)
 	_, err = os.Stat(filepath.Join(home, "identity.json"))
 	require.NoError(t, err)

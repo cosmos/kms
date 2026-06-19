@@ -5,15 +5,15 @@ import (
 
 	"github.com/cometbft/cometbft/crypto"
 
-	"github.com/cosmos/kms/internal/backend"
+	"github.com/cosmos/kms/signing"
 )
 
-// backendPrivKey adapts a backend.Signer to crypto.PrivKey so it can be handed
-// to privval.NewFilePV. Only Sign, PubKey, and Type are exercised by the FilePV
+// backendPrivKey adapts a signing.Backend to crypto.PrivKey so it can be handed to
+// privval.NewFilePV. Only Sign, PubKey, and Type are exercised by the FilePV
 // signing path; Bytes and Equals are intentionally unsupported for remote keys.
 type backendPrivKey struct {
 	ctx context.Context
-	be  backend.Signer
+	be  signing.Backend
 	pub crypto.PubKey
 }
 
@@ -21,7 +21,7 @@ var _ crypto.PrivKey = (*backendPrivKey)(nil)
 
 // newBackendPrivKey caches the public key (so PubKey is cheap and FilePV's
 // address computation works) and returns the adapter.
-func newBackendPrivKey(ctx context.Context, be backend.Signer) (crypto.PrivKey, error) {
+func newBackendPrivKey(ctx context.Context, be signing.Backend) (crypto.PrivKey, error) {
 	pub, err := be.PubKey(ctx)
 	if err != nil {
 		return nil, err

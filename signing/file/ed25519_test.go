@@ -1,4 +1,4 @@
-package softsign_test
+package file_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/kms/internal/backend/softsign"
+	"github.com/cosmos/kms/signing/file"
 )
 
 func TestLoadBase64AndSign(t *testing.T) {
@@ -20,7 +20,7 @@ func TestLoadBase64AndSign(t *testing.T) {
 	path := filepath.Join(dir, "key.b64")
 	require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(priv.Bytes())), 0o600))
 
-	s, err := softsign.Load(path)
+	s, err := file.Load(path)
 	require.NoError(t, err)
 
 	pub, err := s.PubKey(context.Background())
@@ -44,7 +44,7 @@ func TestLoadPrivValidatorKeyJSON(t *testing.T) {
 	path := filepath.Join(dir, "priv_validator_key.json")
 	require.NoError(t, os.WriteFile(path, raw, 0o600))
 
-	s, err := softsign.Load(path)
+	s, err := file.Load(path)
 	require.NoError(t, err)
 	pub, err := s.PubKey(context.Background())
 	require.NoError(t, err)
@@ -52,6 +52,6 @@ func TestLoadPrivValidatorKeyJSON(t *testing.T) {
 }
 
 func TestLoadRejectsMissingFile(t *testing.T) {
-	_, err := softsign.Load(filepath.Join(t.TempDir(), "nope"))
+	_, err := file.Load(filepath.Join(t.TempDir(), "nope"))
 	require.Error(t, err)
 }

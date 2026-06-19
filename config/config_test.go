@@ -9,28 +9,28 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cometbft/cometbft/lp2p"
-	"github.com/cosmos/kms/internal/config"
+	"github.com/cosmos/kms/config"
 )
 
 const good = `
-[[chain]]
-id = "cosmoshub-4"
-state_file = "STATE"
+chain:
+  - id: cosmoshub-4
+    state_file: STATE
 
-[[validator]]
-chain_id = "cosmoshub-4"
-addr = "tcp://127.0.0.1:26659"
-identity_key = "IDENT"
+validator:
+  - chain_id: cosmoshub-4
+    addr: tcp://127.0.0.1:26659
+    identity_key: IDENT
 
-[[providers.softsign]]
-chain_ids = ["cosmoshub-4"]
-key_file = "KEY"
+keys:
+  - chain_ids: [cosmoshub-4]
+    key_file: KEY
 `
 
 func writeCfg(t *testing.T, body string) (cfgPath, home string) {
 	t.Helper()
 	home = t.TempDir()
-	cfgPath = filepath.Join(home, "kms.toml")
+	cfgPath = filepath.Join(home, "kms.yaml")
 	require.NoError(t, os.WriteFile(cfgPath, []byte(body), 0o600))
 	return cfgPath, home
 }
@@ -49,17 +49,17 @@ func TestLoadAndValidateGood(t *testing.T) {
 
 func TestStateFileDefaultsWhenOmitted(t *testing.T) {
 	body := `
-[[chain]]
-id = "c1"
+chain:
+  - id: c1
 
-[[validator]]
-chain_id = "c1"
-addr = "tcp://127.0.0.1:1"
-identity_key = "i"
+validator:
+  - chain_id: c1
+    addr: tcp://127.0.0.1:1
+    identity_key: i
 
-[[providers.softsign]]
-chain_ids = ["c1"]
-key_file = "k"
+keys:
+  - chain_ids: [c1]
+    key_file: k
 `
 	cfgPath, home := writeCfg(t, body)
 	c, err := config.Load(cfgPath)
@@ -70,17 +70,17 @@ key_file = "k"
 
 func TestRelativeKeyPathsResolvedAgainstHome(t *testing.T) {
 	body := `
-[[chain]]
-id = "c1"
+chain:
+  - id: c1
 
-[[validator]]
-chain_id = "c1"
-addr = "tcp://127.0.0.1:1"
-identity_key = "identity.json"
+validator:
+  - chain_id: c1
+    addr: tcp://127.0.0.1:1
+    identity_key: identity.json
 
-[[providers.softsign]]
-chain_ids = ["c1"]
-key_file = "key.json"
+keys:
+  - chain_ids: [c1]
+    key_file: key.json
 `
 	cfgPath, home := writeCfg(t, body)
 	c, err := config.Load(cfgPath)
@@ -88,24 +88,24 @@ key_file = "key.json"
 	require.NoError(t, c.Validate(home))
 
 	require.Equal(t, filepath.Join(home, "identity.json"), c.Validators[0].IdentityKey)
-	require.Equal(t, filepath.Join(home, "key.json"), c.Providers.Softsign[0].KeyFile)
+	require.Equal(t, filepath.Join(home, "key.json"), c.Keys[0].KeyFile)
 }
 
 func TestAbsoluteKeyPathsLeftUnchanged(t *testing.T) {
 	absIdent := filepath.Join(t.TempDir(), "abs-identity.json")
 	absKey := filepath.Join(t.TempDir(), "abs-key.json")
 	body := `
-[[chain]]
-id = "c1"
+chain:
+  - id: c1
 
-[[validator]]
-chain_id = "c1"
-addr = "tcp://127.0.0.1:1"
-identity_key = "` + absIdent + `"
+validator:
+  - chain_id: c1
+    addr: tcp://127.0.0.1:1
+    identity_key: "` + absIdent + `"
 
-[[providers.softsign]]
-chain_ids = ["c1"]
-key_file = "` + absKey + `"
+keys:
+  - chain_ids: [c1]
+    key_file: "` + absKey + `"
 `
 	cfgPath, home := writeCfg(t, body)
 	c, err := config.Load(cfgPath)
@@ -113,20 +113,20 @@ key_file = "` + absKey + `"
 	require.NoError(t, c.Validate(home))
 
 	require.Equal(t, absIdent, c.Validators[0].IdentityKey)
-	require.Equal(t, absKey, c.Providers.Softsign[0].KeyFile)
+	require.Equal(t, absKey, c.Keys[0].KeyFile)
 }
 
 func TestValidatorReferencesUnknownChain(t *testing.T) {
 	body := `
-[[chain]]
-id = "c1"
-[[validator]]
-chain_id = "nope"
-addr = "tcp://127.0.0.1:1"
-identity_key = "i"
-[[providers.softsign]]
-chain_ids = ["c1"]
-key_file = "k"
+chain:
+  - id: c1
+validator:
+  - chain_id: nope
+    addr: tcp://127.0.0.1:1
+    identity_key: i
+keys:
+  - chain_ids: [c1]
+    key_file: k
 `
 	cfgPath, home := writeCfg(t, body)
 	c, err := config.Load(cfgPath)
@@ -136,12 +136,12 @@ key_file = "k"
 
 func TestChainWithoutBackendRejected(t *testing.T) {
 	body := `
-[[chain]]
-id = "c1"
-[[validator]]
-chain_id = "c1"
-addr = "tcp://127.0.0.1:1"
-identity_key = "i"
+chain:
+  - id: c1
+validator:
+  - chain_id: c1
+    addr: tcp://127.0.0.1:1
+    identity_key: i
 `
 	cfgPath, home := writeCfg(t, body)
 	c, err := config.Load(cfgPath)
