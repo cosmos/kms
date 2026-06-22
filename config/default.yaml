@@ -1,0 +1,51 @@
+# kms configuration
+# All file paths in this configs are validated with <home> as their directory root.
+
+chains:
+  - id: my-chain-1
+    # state_file defaults to <home>/state/<id>.json if omitted
+
+validators:
+  - chain_id: my-chain-1
+    addr: tcp://127.0.0.1:26659
+    identity_key: identity.json
+
+# Each key binds one signing key to one or more chains. The backend field
+# selects the custodian ("file" when omitted); the remaining fields depend on
+# the backend. One example per supported backend is shown below — uncomment and
+# adapt the one you need (a chain must be backed by exactly one key).
+keys:
+  # file: an Ed25519 key read from disk into memory (NOT for production custody).
+  - chain_ids: [my-chain-1]
+    backend: file
+    key_file: priv_validator_key.json
+
+  # pkcs11: an Ed25519 key on a PKCS#11 token / HSM (signs on-device).
+  # - chain_ids: [my-chain-1]
+  #   backend: pkcs11
+  #   module: /usr/lib/softhsm/libsofthsm2.so
+  #   token_label: comet      # or: slot: 0
+  #   key_label: validator    # or: key_id: <hex CKA_ID>
+  #   pin_env: KMS_PIN        # or: pin / pin_file
+
+  # awskms: an Ed25519 key in AWS KMS (key never leaves KMS; AWS default
+  # credential chain, e.g. an IAM role).
+  # - chain_ids: [my-chain-1]
+  #   backend: awskms
+  #   key_id: arn:aws:kms:us-east-1:123456789012:key/abcd-...
+  #   region: us-east-1
+#
+# To also serve the SignerService gRPC API (e.g. for ibc-attestor) alongside
+# privval, add a grpc block. Requires TLS. The server performs NO caller
+# authentication or authorization: any client that can reach the listener may
+# use any configured key. Restrict access with TLS and network controls.
+#
+# grpc:
+#   listen: 0.0.0.0:9090
+#   tls_cert: server.crt
+#   tls_key: server.key
+#   keys:
+#     - id: attestor-1
+#       backend: file       # optional; default "file"
+#       algorithm: secp256k1     # optional; default "secp256k1"
+#       key_file: attestor_secp256k1.hex   # hex-encoded 32-byte secp256k1 key

@@ -1,6 +1,7 @@
-package softsign
+package file
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
@@ -25,7 +26,7 @@ func writeKeyFile(t *testing.T, hexKey string) string {
 }
 
 func TestLoadSecp256k1FromFileMatchesString(t *testing.T) {
-	fromFile, err := LoadSecp256k1FromFile(writeKeyFile(t, testHexKey))
+	fromFile, err := LoadSecp256k1(writeKeyFile(t, testHexKey))
 	require.NoError(t, err)
 	fromStr, err := LoadSecp256k1FromString(testHexKey)
 	require.NoError(t, err)
@@ -33,7 +34,7 @@ func TestLoadSecp256k1FromFileMatchesString(t *testing.T) {
 }
 
 func TestLoadSecp256k1FromFileMissing(t *testing.T) {
-	_, err := LoadSecp256k1FromFile(filepath.Join(t.TempDir(), "nope.hex"))
+	_, err := LoadSecp256k1(filepath.Join(t.TempDir(), "nope.hex"))
 	require.Error(t, err)
 }
 
@@ -43,7 +44,7 @@ func TestSignDigestRecovers(t *testing.T) {
 	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, s.Scheme())
 
 	digest := sha256.Sum256([]byte("attestation payload"))
-	out, err := s.Sign(digest[:])
+	out, err := s.Sign(context.TODO(), digest[:])
 	require.NoError(t, err)
 	require.Len(t, out, 65)
 	r, sig, v := out[0:32], out[32:64], out[64]
@@ -67,7 +68,7 @@ func TestSignDigestRecovers(t *testing.T) {
 func TestSignRejectsBadDigestLength(t *testing.T) {
 	s, err := LoadSecp256k1FromString(testHexKey)
 	require.NoError(t, err)
-	_, err = s.Sign(make([]byte, 31))
+	_, err = s.Sign(context.TODO(), make([]byte, 31))
 	require.Error(t, err)
 }
 

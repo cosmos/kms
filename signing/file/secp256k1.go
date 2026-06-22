@@ -1,6 +1,7 @@
-package softsign
+package file
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -24,10 +25,10 @@ func LoadSecp256k1FromString(str string) (*Secp256k1Signer, error) {
 	hexKey := strings.TrimPrefix(strings.TrimSpace(str), "0x")
 	keyBytes, err := hex.DecodeString(hexKey)
 	if err != nil {
-		return nil, fmt.Errorf("softsign: secp256k1 key string %q is not hex: %w", str, err)
+		return nil, fmt.Errorf("file: secp256k1 key string %q is not hex: %w", str, err)
 	}
 	if len(keyBytes) != 32 {
-		return nil, fmt.Errorf("softsign: secp256k1 key string %q: expected 32-byte key, got %d", str, len(keyBytes))
+		return nil, fmt.Errorf("file: secp256k1 key string %q: expected 32-byte key, got %d", str, len(keyBytes))
 	}
 	priv := secp256k1.PrivKeyFromBytes(keyBytes)
 	return &Secp256k1Signer{priv: priv, pub: priv.PubKey()}, nil
@@ -35,14 +36,14 @@ func LoadSecp256k1FromString(str string) (*Secp256k1Signer, error) {
 
 // LoadSecp256k1FromFile reads a file containing the hex-encoded 32-byte secp256k1
 // private key.
-func LoadSecp256k1FromFile(path string) (*Secp256k1Signer, error) {
+func LoadSecp256k1(path string) (*Secp256k1Signer, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("softsign: read secp256k1 key file %q: %w", path, err)
+		return nil, fmt.Errorf("file: read secp256k1 key file %q: %w", path, err)
 	}
 	signer, err := LoadSecp256k1FromString(string(raw))
 	if err != nil {
-		return nil, fmt.Errorf("softsign: secp256k1 key file %q failed string decoding: %w", path, err)
+		return nil, fmt.Errorf("file: secp256k1 key file %q failed string decoding: %w", path, err)
 	}
 	return signer, nil
 }
@@ -56,14 +57,14 @@ func (s *Secp256k1Signer) Scheme() pb.SignatureScheme { return pb.SignatureSchem
 // so S is always canonical (low-S); no re-normalization is needed. This method
 // reorders the <27+recid><R><S> compact form to the r‖s‖v layout the client
 // expects and reduces the recovery code to 0/1.
-func (s *Secp256k1Signer) Sign(digest []byte) ([]byte, error) {
+func (s *Secp256k1Signer) Sign(_ context.Context, digest []byte) ([]byte, error) {
 	if len(digest) != 32 {
-		return nil, fmt.Errorf("softsign: secp256k1 digest must be 32 bytes, got %d", len(digest))
+		return nil, fmt.Errorf("file: secp256k1 digest must be 32 bytes, got %d", len(digest))
 	}
 	// isCompressedKey=false so the recovery code is 27+recid (no +4 offset).
 	compact := ecdsa.SignCompact(s.priv, digest, false)
 	if len(compact) != 65 {
-		return nil, fmt.Errorf("softsign: unexpected compact signature length %d", len(compact))
+		return nil, fmt.Errorf("file: unexpected compact signature length %d", len(compact))
 	}
 	recid := compact[0] - 27 // pubKeyRecoveryCode (0–3)
 	if recid > 1 {
@@ -71,7 +72,7 @@ func (s *Secp256k1Signer) Sign(digest []byte) ([]byte, error) {
 		// SignerService protocol requires a 0/1 recovery id, so reject it. This
 		// is unrecoverable for this key+digest: RFC6979 nonces are deterministic,
 		// so re-signing the same digest yields the same recid every time.
-		return nil, fmt.Errorf("softsign: recovery id %d (X-overflow point) unsupported; key+digest cannot produce a 0/1 recovery id", recid)
+		return nil, fmt.Errorf("file: recovery id %d (X-overflow point) unsupported; key+digest cannot produce a 0/1 recovery id", recid)
 	}
 	out := make([]byte, 65)
 	copy(out[0:32], compact[1:33])   // r
@@ -87,3 +88,8 @@ func (s *Secp256k1Signer) PubKey() []byte { return s.pub.SerializeCompressed() }
 // PubKeyUncompressed returns the 65-byte uncompressed secp256k1 public key
 // (0x04 || X || Y). Used in tests for recovery comparison.
 func (s *Secp256k1Signer) PubKeyUncompressed() []byte { return s.pub.SerializeUncompressed() }
+
+// Close is a no-op for file based signers.
+func (s *Secp256k1Signer) Close() error {
+	return nil
+}

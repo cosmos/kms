@@ -20,14 +20,14 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/kms/internal/backend"
-	"github.com/cosmos/kms/internal/backend/softsign"
 	"github.com/cosmos/kms/internal/manager"
 	"github.com/cosmos/kms/internal/signer"
 	"github.com/cosmos/kms/internal/transport"
+	"github.com/cosmos/kms/signing"
+	"github.com/cosmos/kms/signing/file"
 )
 
-// failingBackend is a backend.Signer that is reachable and exposes a real public
+// failingBackend is a signing.Backend that is reachable and exposes a real public
 // key, but whose Sign always returns a fixed error. It simulates a signing
 // backend (HSM, cloud KMS, ...) that is connected yet rejects the signing
 // operation itself — as opposed to a network/connection failure.
@@ -36,12 +36,13 @@ type failingBackend struct {
 	err error
 }
 
-var _ backend.Signer = failingBackend{}
+var _ signing.Backend = failingBackend{}
 
 func (b failingBackend) PubKey(context.Context) (crypto.PubKey, error) { return b.pub, nil }
 func (b failingBackend) Sign(context.Context, []byte) ([]byte, error)  { return nil, b.err }
+func (b failingBackend) Close() error                                  { return nil }
 
-// writeKey writes a softsign key file and returns its path.
+// writeKey writes a file-backend key file and returns its path.
 func writeKey(t *testing.T, dir string) string {
 	t.Helper()
 	raw, err := cmtjson.MarshalIndent(struct {
@@ -68,7 +69,7 @@ func TestEndToEndSigning(t *testing.T) {
 	logger := log.TestingLogger()
 
 	// kms (signer) side.
-	be, err := softsign.Load(writeKey(t, dir))
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
@@ -202,8 +203,8 @@ func TestEndToEndSigningNoise(t *testing.T) {
 	kmsPeer, err := lp2p.IDFromPrivateKey(kmsKey)
 	require.NoError(t, err)
 
-	// KMS signer (softsign + ChainSigner).
-	be, err := softsign.Load(writeKey(t, dir))
+	// KMS signer (file backend + ChainSigner).
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
@@ -253,7 +254,7 @@ func TestReconnectAfterListenerRestart(t *testing.T) {
 	dir := t.TempDir()
 	logger := log.TestingLogger()
 
-	be, err := softsign.Load(writeKey(t, dir))
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
@@ -304,7 +305,7 @@ func TestReconnectDisabledStopsAfterDrop(t *testing.T) {
 	dir := t.TempDir()
 	logger := log.TestingLogger()
 
-	be, err := softsign.Load(writeKey(t, dir))
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)

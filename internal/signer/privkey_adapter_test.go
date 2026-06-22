@@ -9,11 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stubBackend is a minimal backend.Signer for tests.
+// stubBackend is a minimal Backend for tests.
 type stubBackend struct{ priv crypto.PrivKey }
 
 func (s stubBackend) PubKey(context.Context) (crypto.PubKey, error)    { return s.priv.PubKey(), nil }
 func (s stubBackend) Sign(_ context.Context, b []byte) ([]byte, error) { return s.priv.Sign(b) }
+func (s stubBackend) Close() error                                     { return nil }
 
 func TestAdapterSatisfiesPrivKeyAndSigns(t *testing.T) {
 	priv := ed25519.GenPrivKey()
