@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -56,7 +57,7 @@ func (s *Secp256k1Signer) Scheme() pb.SignatureScheme { return pb.SignatureSchem
 // so S is always canonical (low-S); no re-normalization is needed. This method
 // reorders the <27+recid><R><S> compact form to the r‖s‖v layout the client
 // expects and reduces the recovery code to 0/1.
-func (s *Secp256k1Signer) Sign(digest []byte) ([]byte, error) {
+func (s *Secp256k1Signer) Sign(_ context.Context, digest []byte) ([]byte, error) {
 	if len(digest) != 32 {
 		return nil, fmt.Errorf("file: secp256k1 digest must be 32 bytes, got %d", len(digest))
 	}

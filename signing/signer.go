@@ -1,6 +1,8 @@
 package signing
 
 import (
+	"context"
+
 	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
@@ -15,7 +17,7 @@ type Signer interface {
 	// Scheme reports the signature scheme this key signs under.
 	Scheme() pb.SignatureScheme
 	// Sign signs payload under Scheme and returns the raw signature bytes.
-	Sign(payload []byte) ([]byte, error)
+	Sign(ctx context.Context, payload []byte) ([]byte, error)
 }
 
 // Key is a configured SignerService signing identity.

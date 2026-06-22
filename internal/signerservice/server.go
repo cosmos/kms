@@ -53,7 +53,7 @@ func (s *Server) Sign(_ context.Context, req *pb.SignRequest) (*pb.SignResponse,
 	if k.Signer.Scheme() == pb.SignatureScheme_ECDSA_SECP256K1 && len(payload) != 32 {
 		return nil, status.Error(codes.InvalidArgument, "ECDSA_SECP256K1 payload must be a 32-byte digest")
 	}
-	sig, err := k.Signer.Sign(payload)
+	sig, err := k.Signer.Sign(context.TODO(), payload)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "sign: %v", err)
 	}
