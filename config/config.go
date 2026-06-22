@@ -138,8 +138,8 @@ func (v Validator) ParsedTransport() (tr Transport, addr string, validatorPeer p
 // kms serves the SignerService alongside any privval dial-out connections.
 type GRPCConfig struct {
 	Listen  string    `yaml:"listen"`   // host:port to listen on
-	TLSCert string    `yaml:"tls_cert"` // server TLS certificate file
-	TLSKey  string    `yaml:"tls_key"`  // server TLS private key file
+	TLSCert string    `yaml:"tls_cert"` // server TLS certificate file; empty (with tls_key) serves plaintext
+	TLSKey  string    `yaml:"tls_key"`  // server TLS private key file; empty (with tls_cert) serves plaintext
 	Keys    []GRPCKey `yaml:"keys"`
 }
 
