@@ -47,13 +47,11 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 	// chainID -> backend (one backend per chain).
 	backends := map[string]signing.Backend{}
 	for _, k := range c.Keys {
-		s, closer, berr := newPrivvalBackend(k)
+		s, berr := newPrivvalBackend(k)
 		if berr != nil {
 			return nil, cleanup, berr
 		}
-		if closer != nil {
-			closers = append(closers, closer)
-		}
+		closers = append(closers, s)
 		for _, id := range k.ChainIDs {
 			if _, dup := backends[id]; dup {
 				return nil, cleanup, fmt.Errorf("app: multiple backends bound to chain %q", id)
@@ -116,20 +114,20 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 // newPrivvalBackend constructs the signing backend for one config key. The
 // returned io.Closer is non-nil only for backends that hold OS resources
 // (pkcs11) and must be closed on shutdown.
-func newPrivvalBackend(k config.Key) (signing.Backend, io.Closer, error) {
+func newPrivvalBackend(k config.Key) (signing.Backend, error) {
 	switch k.Backend {
 	case config.BackendFile:
 		s, err := file.LoadEd25519(k.KeyFile)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		return s, nil, nil
+		return s, nil
 	case config.BackendPKCS11:
 		var keyID []byte
 		if k.KeyID != "" {
 			var derr error
 			if keyID, derr = hex.DecodeString(k.KeyID); derr != nil {
-				return nil, nil, fmt.Errorf("app: pkcs11 key_id %q: %w", k.KeyID, derr)
+				return nil, fmt.Errorf("app: pkcs11 key_id %q: %w", k.KeyID, derr)
 			}
 		}
 		s, err := pkcs11.Open(pkcs11.Config{
@@ -144,9 +142,9 @@ func newPrivvalBackend(k config.Key) (signing.Backend, io.Closer, error) {
 			Algorithm:  k.Algorithm,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		return s, s, nil
+		return s, nil
 	case config.BackendAWSKMS:
 		s, err := awskms.Open(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,
@@ -156,11 +154,11 @@ func newPrivvalBackend(k config.Key) (signing.Backend, io.Closer, error) {
 			Algorithm: k.Algorithm,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		return s, nil, nil
+		return s, nil
 	default:
-		return nil, nil, fmt.Errorf("app: key for chains %v has unknown backend %q", k.ChainIDs, k.Backend)
+		return nil, fmt.Errorf("app: key for chains %v has unknown backend %q", k.ChainIDs, k.Backend)
 	}
 }
 

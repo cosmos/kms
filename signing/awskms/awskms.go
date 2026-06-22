@@ -116,3 +116,8 @@ func (s *Signer) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
 	}
 	return s.algo.fixSig(out.Signature)
 }
+
+// Close is a no-op for awskms based signers.
+func (s *Signer) Close() error {
+	return nil
+}

@@ -72,3 +72,8 @@ func (s *Signer) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, 
 func (s *Signer) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
 	return s.priv.Sign(signBytes)
 }
+
+// Close is a no-op for file based signers.
+func (s *Signer) Close() error {
+	return nil
+}

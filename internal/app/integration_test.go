@@ -40,6 +40,7 @@ var _ signing.Backend = failingBackend{}
 
 func (b failingBackend) PubKey(context.Context) (crypto.PubKey, error) { return b.pub, nil }
 func (b failingBackend) Sign(context.Context, []byte) ([]byte, error)  { return nil, b.err }
+func (b failingBackend) Close() error                                  { return nil }
 
 // writeKey writes a file-backend key file and returns its path.
 func writeKey(t *testing.T, dir string) string {

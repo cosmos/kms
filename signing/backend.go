@@ -21,4 +21,6 @@ type Backend interface {
 	PubKey(ctx context.Context) (crypto.PubKey, error)
 	// Sign signs the canonical consensus sign-bytes and returns the signature.
 	Sign(ctx context.Context, signBytes []byte) ([]byte, error)
+	// Close contains any logic that should be called on cleanup.
+	Close() error
 }

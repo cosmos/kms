@@ -19,6 +19,7 @@ type memBackend struct{ priv crypto.PrivKey }
 
 func (m memBackend) PubKey(context.Context) (crypto.PubKey, error)    { return m.priv.PubKey(), nil }
 func (m memBackend) Sign(_ context.Context, b []byte) ([]byte, error) { return m.priv.Sign(b) }
+func (m memBackend) Close() error                                     { return nil }
 
 const chainID = "test-chain-1"
 

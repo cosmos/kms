@@ -87,3 +87,8 @@ func (s *Secp256k1Signer) PubKey() []byte { return s.pub.SerializeCompressed() }
 // PubKeyUncompressed returns the 65-byte uncompressed secp256k1 public key
 // (0x04 || X || Y). Used in tests for recovery comparison.
 func (s *Secp256k1Signer) PubKeyUncompressed() []byte { return s.pub.SerializeUncompressed() }
+
+// Close is a no-op for file based signers.
+func (s *Secp256k1Signer) Close() error {
+	return nil
+}
