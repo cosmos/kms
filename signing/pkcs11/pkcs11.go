@@ -1,4 +1,4 @@
-// Package pkcs11 implements a backend.Signer backed by a PKCS#11 token or HSM.
+// Package pkcs11 implements a signing key backed by a PKCS#11 token or HSM.
 // The private key never leaves the token: signing is performed on-device via the
 // PKCS#11 C_Sign operation. Ed25519 (CKM_EDDSA) is the only key algorithm today;
 // see algo.go for the per-algorithm seam.
@@ -14,10 +14,7 @@ import (
 	"github.com/miekg/pkcs11"
 
 	"github.com/cometbft/cometbft/crypto"
-	"github.com/cosmos/kms/internal/backend"
 )
-
-var _ backend.Signer = (*Signer)(nil)
 
 // Config describes how to open a key on a PKCS#11 token. Exactly one of
 // TokenLabel/Slot selects the token, at least one of KeyLabel/KeyID selects the
@@ -35,7 +32,7 @@ type Config struct {
 	Algorithm  string
 }
 
-// Signer is a backend.Signer that signs on a PKCS#11 token. It owns a single
+// Signer signs on a PKCS#11 token. It owns a single
 // long-lived session; the mutex serializes signing (PKCS#11 sessions are not
 // safe for concurrent use) and guards Close.
 type Signer struct {

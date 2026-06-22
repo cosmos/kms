@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	pk "github.com/cosmos/kms/internal/backend/pkcs11"
-	"github.com/cosmos/kms/internal/backend/pkcs11/pkcs11test"
+	pk "github.com/cosmos/kms/signing/pkcs11"
+	"github.com/cosmos/kms/signing/pkcs11/pkcs11test"
 )
 
 func TestOpenPubKeySignVerify(t *testing.T) {

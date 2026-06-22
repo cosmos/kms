@@ -3,7 +3,7 @@
 // Package awskms LocalStack integration test. Run with:
 //
 //	KMS_AWSKMS_ENDPOINT=http://localhost:4566 \
-//	  go test -tags localstack ./internal/backend/awskms/ -run TestLocalStack -v
+//	  go test -tags localstack ./signing/awskms/ -run TestLocalStack -v
 //
 // Requires a LocalStack instance with KMS. It auto-skips if the endpoint is
 // unreachable or if LocalStack does not support the ECC_NIST_EDWARDS25519 key

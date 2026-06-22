@@ -7,11 +7,11 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/app"
-	"github.com/cosmos/kms/internal/config"
 )
 
-func TestBuildAWSKMSProviderUnreachableErrors(t *testing.T) {
+func TestBuildAWSKMSKeyUnreachableErrors(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
 	t.Setenv("AWS_REGION", "us-east-1")
@@ -21,12 +21,15 @@ func TestBuildAWSKMSProviderUnreachableErrors(t *testing.T) {
 	c := &config.Config{
 		Chains:     []config.Chain{{ID: "c1"}},
 		Validators: []config.Validator{{ChainID: "c1", Addr: "tcp://127.0.0.1:1", IdentityKey: filepath.Join(home, "id.json")}},
-		Providers: config.Providers{AWSKMS: []config.AWSKMSProvider{{
+		Keys: []config.Key{{
 			ChainIDs: []string{"c1"},
+			Backend:  config.BackendAWSKMS,
 			KeyID:    "alias/validator",
-			Region:   "us-east-1",
-			Endpoint: "http://127.0.0.1:1", // closed port -> connection refused
-		}}},
+			AWSKMSConfig: config.AWSKMSConfig{
+				Region:   "us-east-1",
+				Endpoint: "http://127.0.0.1:1", // closed port -> connection refused
+			},
+		}},
 	}
 	require.NoError(t, c.Validate(home))
 
