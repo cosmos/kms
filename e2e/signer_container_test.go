@@ -56,8 +56,8 @@ func TestSignerContainerE2E(t *testing.T) {
 		),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort(containerPort+"/tcp")),
 	)
-	require.NoError(t, err)
 	testcontainers.CleanupContainer(t, ctr)
+	require.NoError(t, err)
 
 	addr := mappedAddr(ctx, t, ctr)
 
@@ -107,7 +107,7 @@ func fileFromBytes(content []byte, containerPath string) testcontainers.Containe
 	return testcontainers.ContainerFile{
 		Reader:            bytes.NewReader(content),
 		ContainerFilePath: containerPath,
-		FileMode:          0o644,
+		FileMode:          0o600,
 	}
 }
 
