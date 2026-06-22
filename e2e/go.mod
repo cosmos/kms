@@ -1,5 +1,3 @@
-// Separate module so testcontainers and its transitive deps stay out of the
-// main kms module. Run via `make test-e2e` (builds the image first).
 module github.com/cosmos/kms/e2e
 
 go 1.26.0
