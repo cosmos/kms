@@ -119,7 +119,7 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 func newPrivvalBackend(k config.Key) (signing.Backend, io.Closer, error) {
 	switch k.Backend {
 	case config.BackendFile:
-		s, err := file.Load(k.KeyFile)
+		s, err := file.LoadEd25519(k.KeyFile)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -213,7 +213,7 @@ func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	}
 	switch {
 	case be == "file" && algo == "secp256k1":
-		return file.LoadSecp256k1FromFile(config.AbsPath(home, k.KeyFile))
+		return file.LoadSecp256k1(config.AbsPath(home, k.KeyFile))
 	default:
 		return nil, fmt.Errorf("app: grpc key %q: unsupported backend/algorithm %q/%q", k.ID, be, algo)
 	}

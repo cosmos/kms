@@ -68,7 +68,7 @@ func TestEndToEndSigning(t *testing.T) {
 	logger := log.TestingLogger()
 
 	// kms (signer) side.
-	be, err := file.Load(writeKey(t, dir))
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestEndToEndSigningNoise(t *testing.T) {
 	require.NoError(t, err)
 
 	// KMS signer (file backend + ChainSigner).
-	be, err := file.Load(writeKey(t, dir))
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestReconnectAfterListenerRestart(t *testing.T) {
 	dir := t.TempDir()
 	logger := log.TestingLogger()
 
-	be, err := file.Load(writeKey(t, dir))
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
@@ -304,7 +304,7 @@ func TestReconnectDisabledStopsAfterDrop(t *testing.T) {
 	dir := t.TempDir()
 	logger := log.TestingLogger()
 
-	be, err := file.Load(writeKey(t, dir))
+	be, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
 	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)

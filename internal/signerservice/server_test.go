@@ -29,7 +29,7 @@ func newKey(t *testing.T) *file.Secp256k1Signer {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "k.hex")
 	require.NoError(t, os.WriteFile(p, []byte("4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"), 0o600))
-	s, err := file.LoadSecp256k1FromFile(p)
+	s, err := file.LoadSecp256k1(p)
 	require.NoError(t, err)
 	return s
 }

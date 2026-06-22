@@ -25,7 +25,7 @@ func writeKeyFile(t *testing.T, hexKey string) string {
 }
 
 func TestLoadSecp256k1FromFileMatchesString(t *testing.T) {
-	fromFile, err := LoadSecp256k1FromFile(writeKeyFile(t, testHexKey))
+	fromFile, err := LoadSecp256k1(writeKeyFile(t, testHexKey))
 	require.NoError(t, err)
 	fromStr, err := LoadSecp256k1FromString(testHexKey)
 	require.NoError(t, err)
@@ -33,7 +33,7 @@ func TestLoadSecp256k1FromFileMatchesString(t *testing.T) {
 }
 
 func TestLoadSecp256k1FromFileMissing(t *testing.T) {
-	_, err := LoadSecp256k1FromFile(filepath.Join(t.TempDir(), "nope.hex"))
+	_, err := LoadSecp256k1(filepath.Join(t.TempDir(), "nope.hex"))
 	require.Error(t, err)
 }
 

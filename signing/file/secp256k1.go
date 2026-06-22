@@ -35,7 +35,7 @@ func LoadSecp256k1FromString(str string) (*Secp256k1Signer, error) {
 
 // LoadSecp256k1FromFile reads a file containing the hex-encoded 32-byte secp256k1
 // private key.
-func LoadSecp256k1FromFile(path string) (*Secp256k1Signer, error) {
+func LoadSecp256k1(path string) (*Secp256k1Signer, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("file: read secp256k1 key file %q: %w", path, err)

@@ -20,7 +20,7 @@ func TestLoadBase64AndSign(t *testing.T) {
 	path := filepath.Join(dir, "key.b64")
 	require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(priv.Bytes())), 0o600))
 
-	s, err := file.Load(path)
+	s, err := file.LoadEd25519(path)
 	require.NoError(t, err)
 
 	pub, err := s.PubKey(context.Background())
@@ -44,7 +44,7 @@ func TestLoadPrivValidatorKeyJSON(t *testing.T) {
 	path := filepath.Join(dir, "priv_validator_key.json")
 	require.NoError(t, os.WriteFile(path, raw, 0o600))
 
-	s, err := file.Load(path)
+	s, err := file.LoadEd25519(path)
 	require.NoError(t, err)
 	pub, err := s.PubKey(context.Background())
 	require.NoError(t, err)
@@ -52,6 +52,6 @@ func TestLoadPrivValidatorKeyJSON(t *testing.T) {
 }
 
 func TestLoadRejectsMissingFile(t *testing.T) {
-	_, err := file.Load(filepath.Join(t.TempDir(), "nope"))
+	_, err := file.LoadEd25519(filepath.Join(t.TempDir(), "nope"))
 	require.Error(t, err)
 }

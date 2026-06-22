@@ -20,10 +20,10 @@ type Signer struct {
 	pub  crypto.PubKey
 }
 
-// Load reads a key file. It accepts either a CometBFT priv_validator_key.json
+// LoadEd25519 reads a key file. It accepts either a CometBFT priv_validator_key.json
 // (typed JSON with a "priv_key" field) or a file containing the base64-encoded
 // 64-byte Ed25519 private key.
-func Load(path string) (*Signer, error) {
+func LoadEd25519(path string) (*Signer, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("file: read key file %q: %w", path, err)
