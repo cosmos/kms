@@ -13,7 +13,7 @@ COPY . .
 # KMS_VERSION is overridable; the Makefile's git-describe default is unavailable
 # without a .git, so pass a build arg when you want a real version stamp.
 ARG KMS_VERSION=0.0.0-docker
-RUN make build KMS_VERSION=$KMS_VERSION KMS_OUTPUT=/out/kms
+RUN mkdir -p /out && make build KMS_VERSION=$KMS_VERSION KMS_OUTPUT=/out/kms
 
 FROM debian:bookworm-slim
 # Runtime libraries for pkcs11 are opt-in via PKCS11=true.
