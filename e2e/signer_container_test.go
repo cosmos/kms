@@ -107,7 +107,7 @@ func fileFromBytes(content []byte, containerPath string) testcontainers.Containe
 	return testcontainers.ContainerFile{
 		Reader:            bytes.NewReader(content),
 		ContainerFilePath: containerPath,
-		FileMode:          0o600,
+		FileMode:          0o644,
 	}
 }
 
