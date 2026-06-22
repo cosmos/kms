@@ -1,4 +1,5 @@
 # kms configuration
+# All file paths in this configs are validated with <home> as their directory root.
 
 chains:
   - id: my-chain-1
