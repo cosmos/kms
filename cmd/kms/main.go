@@ -12,45 +12,11 @@ import (
 	"github.com/cometbft/cometbft/lp2p"
 	"github.com/spf13/cobra"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/app"
-	"github.com/cosmos/kms/internal/config"
 	"github.com/cosmos/kms/internal/identity"
 	"github.com/cosmos/kms/internal/version"
 )
-
-const defaultConfigTemplate = `# kms configuration
-
-[[chain]]
-id = "my-chain-1"
-# state_file defaults to <home>/state/<id>.json if omitted
-
-[[validator]]
-chain_id = "my-chain-1"
-addr = "tcp://127.0.0.1:26659"
-identity_key = "identity.json"
-
-[[providers.softsign]]
-chain_ids = ["my-chain-1"]
-key_file = "priv_validator_key.json"
-
-# To sign from a PKCS#11 token / HSM instead of softsign, replace the
-# [[providers.softsign]] block above with a pkcs11 provider:
-#
-# [[providers.pkcs11]]
-# chain_ids   = ["my-chain-1"]
-# module      = "/usr/lib/softhsm/libsofthsm2.so"
-# token_label = "comet"
-# key_label   = "validator"
-# pin_env     = "KMS_PIN"
-#
-# Or to sign from an AWS KMS Ed25519 key, use an awskms provider (AWS
-# credentials come from the standard AWS default chain, e.g. an IAM role):
-#
-# [[providers.awskms]]
-# chain_ids = ["my-chain-1"]
-# key_id    = "arn:aws:kms:us-east-1:123456789012:key/abcd-..."
-# region    = "us-east-1"
-`
 
 // home is the home directory of kms
 var home string
@@ -123,7 +89,7 @@ func runInit(home string) error {
 	}
 	path := cfgPath(home)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.WriteFile(path, []byte(defaultConfigTemplate), 0o600); err != nil {
+		if err := os.WriteFile(path, []byte(config.DefaultTemplate), 0o600); err != nil {
 			return err
 		}
 	}
@@ -159,11 +125,30 @@ func startCmd() *cobra.Command {
 			}
 			defer mgr.Stop()
 
+			grpcErr := make(chan error, 1)
+			gs, lis, err := app.BuildGRPC(cfg, home, logger)
+			if err != nil {
+				return err
+			}
+			if gs != nil {
+				go func() {
+					logger.Info("serving signerservice gRPC", "addr", lis.Addr().String())
+					if serr := gs.Serve(lis); serr != nil {
+						grpcErr <- serr
+					}
+				}()
+				defer gs.GracefulStop()
+			}
+
 			logger.Info("kms started; press Ctrl-C to stop")
 			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-			<-sig
-			logger.Info("kms shutting down")
+			select {
+			case <-sig:
+				logger.Info("kms shutting down")
+			case serr := <-grpcErr:
+				return fmt.Errorf("signerservice gRPC server failed: %w", serr)
+			}
 			return nil
 		},
 	}
@@ -171,5 +156,5 @@ func startCmd() *cobra.Command {
 }
 
 func cfgPath(home string) string {
-	return filepath.Join(home, "kms.toml")
+	return filepath.Join(home, "kms.yaml")
 }

@@ -40,7 +40,7 @@ type keyAlgo struct {
 //
 // Ed25519 uses the ECC_NIST_EDWARDS25519 key spec with the ED25519_SHA_512
 // signing algorithm and MessageType=RAW, which is standard RFC 8032 PureEd25519
-// over the raw message — identical to the softsign/pkcs11 backends. The
+// over the raw message — identical to the file/pkcs11 backends. The
 // signature is a fixed raw 64 bytes, so fixSig is the identity.
 var algos = map[string]keyAlgo{
 	algoEd25519: {
