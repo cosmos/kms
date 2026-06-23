@@ -49,3 +49,10 @@ keys:
 #       backend: file       # optional; default "file"
 #       algorithm: secp256k1     # optional; default "secp256k1"
 #       key_file: attestor_secp256k1.hex   # hex-encoded 32-byte secp256k1 key
+#     # awskms: an Ed25519 key in AWS KMS (key never leaves KMS; AWS default
+#     # credential chain). algorithm defaults to "ed25519" for awskms.
+#     - id: attestor-2
+#       backend: awskms
+#       algorithm: ed25519       # optional; default "ed25519" for awskms
+#       key_id: alias/attestor   # KMS id, ARN, or alias/<name>
+#       region: us-east-1        # optional; AWS default chain otherwise

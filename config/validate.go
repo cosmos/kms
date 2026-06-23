@@ -232,7 +232,8 @@ func (c *Config) validateGRPC(home string) error {
 		return fmt.Errorf("config: grpc requires at least one grpc.key entry")
 	}
 	seen := map[string]bool{}
-	for i, k := range g.Keys {
+	for i := range g.Keys {
+		k := &g.Keys[i]
 		if k.ID == "" {
 			return fmt.Errorf("config: grpc.key[%d].id is required", i)
 		}
@@ -240,11 +241,30 @@ func (c *Config) validateGRPC(home string) error {
 			return fmt.Errorf("config: duplicate grpc.key id %q", k.ID)
 		}
 		seen[k.ID] = true
-		if k.KeyFile == "" {
-			return fmt.Errorf("config: grpc.key[%d].key_file is required", i)
+
+		// gRPC keys carry their own (small) backend validation rather than sharing
+		// the consensus per-backend validators: only file and awskms are supported
+		// here, and a gRPC key is bound by id, not chain_ids.
+		if k.Backend == "" {
+			k.Backend = BackendFile
 		}
-		if _, err := os.Stat(AbsPath(home, k.KeyFile)); err != nil {
-			return fmt.Errorf("config: grpc.key[%d].key_file %q: %w", i, k.KeyFile, err)
+		switch k.Backend {
+		case BackendFile:
+			if k.KeyFile == "" {
+				return fmt.Errorf("config: grpc.key[%d] (file) requires key_file", i)
+			}
+			if _, err := os.Stat(AbsPath(home, k.KeyFile)); err != nil {
+				return fmt.Errorf("config: grpc.key[%d].key_file %q: %w", i, k.KeyFile, err)
+			}
+		case BackendAWSKMS:
+			if k.KeyID == "" {
+				return fmt.Errorf("config: grpc.key[%d] (awskms) requires key_id", i)
+			}
+			if k.Algorithm != "" && !supportedAWSKMSAlgorithms[k.Algorithm] {
+				return fmt.Errorf("config: grpc.key[%d] (awskms) has unknown algorithm %q", i, k.Algorithm)
+			}
+		default:
+			return fmt.Errorf("config: grpc.key[%d] has unsupported backend %q", i, k.Backend)
 		}
 	}
 	return nil
