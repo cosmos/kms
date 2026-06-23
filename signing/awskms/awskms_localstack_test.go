@@ -12,6 +12,7 @@ package awskms
 
 import (
 	"context"
+	"crypto/ed25519"
 	"os"
 	"strings"
 	"testing"
@@ -22,6 +23,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/stretchr/testify/require"
+
+	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
 func endpoint() string {
@@ -73,4 +76,17 @@ func TestLocalStackSignRoundtrip(t *testing.T) {
 	sig, err := s.Sign(ctx, msg)
 	require.NoError(t, err)
 	require.True(t, pub.VerifySignature(msg, sig))
+
+	// Same key through the gRPC SignerService adapter: 32-byte pubkey, ED25519
+	// scheme, 64-byte signature that the pubkey verifies.
+	gs := &Signer{be: s}
+	require.Equal(t, pb.SignatureScheme_ED25519, gs.Scheme())
+	gpub := gs.PubKey()
+	require.Len(t, gpub, ed25519.PublicKeySize)
+
+	gmsg := []byte("localstack signerservice payload")
+	gsig, err := gs.Sign(ctx, gmsg)
+	require.NoError(t, err)
+	require.Len(t, gsig, ed25519.SignatureSize)
+	require.True(t, ed25519.Verify(ed25519.PublicKey(gpub), gmsg, gsig))
 }

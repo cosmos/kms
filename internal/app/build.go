@@ -199,19 +199,33 @@ func BuildGRPC(c *config.Config, home string, logger log.Logger) (*grpc.Server, 
 }
 
 // newGRPCSigner constructs the signing.Signer for one grpc.key entry from its
-// backend/algorithm. Empty backend/algorithm default to file/secp256k1, the
-// only implemented combination.
+// backend/algorithm. The algorithm default depends on the backend: file defaults
+// to secp256k1, awskms to ed25519. Supported combinations are file/secp256k1 and
+// awskms/ed25519.
 func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	be, algo := k.Backend, k.Algorithm
 	if be == "" {
-		be = "file"
+		be = config.BackendFile
 	}
 	if algo == "" {
-		algo = "secp256k1"
+		switch be {
+		case config.BackendAWSKMS:
+			algo = "ed25519"
+		default:
+			algo = "secp256k1"
+		}
 	}
 	switch {
-	case be == "file" && algo == "secp256k1":
+	case be == config.BackendFile && algo == "secp256k1":
 		return file.LoadSecp256k1(config.AbsPath(home, k.KeyFile))
+	case be == config.BackendAWSKMS && algo == "ed25519":
+		return awskms.OpenSigner(context.Background(), awskms.Config{
+			KeyID:     k.KeyID,
+			Region:    k.Region,
+			Profile:   k.Profile,
+			Endpoint:  k.Endpoint,
+			Algorithm: algo,
+		})
 	default:
 		return nil, fmt.Errorf("app: grpc key %q: unsupported backend/algorithm %q/%q", k.ID, be, algo)
 	}

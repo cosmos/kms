@@ -2,6 +2,8 @@ package signerservice
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
 	"net"
 	"os"
@@ -23,6 +25,30 @@ import (
 
 // Secp256k1Signer must satisfy the signing.Signer contract the server signs through.
 var _ signing.Signer = (*file.Secp256k1Signer)(nil)
+
+// memEd25519 is a minimal in-memory ED25519-scheme signing.Signer used to prove
+// the server's scheme-generic path (e.g. an awskms.Signer behaves the same to
+// the server). The 32-byte digest check applies only to ECDSA_SECP256K1, so an
+// ED25519 key signs its payload as a message of any length.
+type memEd25519 struct {
+	pub  ed25519.PublicKey
+	priv ed25519.PrivateKey
+}
+
+func newMemEd25519(t *testing.T) *memEd25519 {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	return &memEd25519{pub: pub, priv: priv}
+}
+
+func (m *memEd25519) PubKey() []byte             { return m.pub }
+func (m *memEd25519) Scheme() pb.SignatureScheme { return pb.SignatureScheme_ED25519 }
+func (m *memEd25519) Sign(_ context.Context, payload []byte) ([]byte, error) {
+	return ed25519.Sign(m.priv, payload), nil
+}
+
+var _ signing.Signer = (*memEd25519)(nil)
 
 func newKey(t *testing.T) *file.Secp256k1Signer {
 	t.Helper()
@@ -73,6 +99,29 @@ func TestSignRecoverableRecovers(t *testing.T) {
 	recovered, _, err := ecdsa.RecoverCompact(compact, digest[:])
 	require.NoError(t, err)
 	require.Equal(t, k.PubKeyUncompressed(), recovered.SerializeUncompressed())
+}
+
+func TestSignAndGetKeyEd25519(t *testing.T) {
+	k := newMemEd25519(t)
+	srv := NewServer(map[string]signing.Key{"val-1": {ID: "val-1", Signer: k}})
+	client := dialTestServer(t, srv)
+
+	// ED25519 signs a message of any length: no 32-byte digest restriction.
+	msg := []byte("an arbitrary-length consensus message")
+	resp, err := client.Sign(context.Background(), &pb.SignRequest{
+		KeyId:   "val-1",
+		Payload: &pb.Payload{Kind: &pb.Payload_Generic{Generic: msg}},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Signature, ed25519.SignatureSize)
+	require.True(t, ed25519.Verify(k.pub, msg, resp.Signature))
+
+	// GetKey reports the 32-byte pubkey and ED25519 scheme.
+	got, err := client.GetKey(context.Background(), &pb.GetKeyRequest{Id: "val-1"})
+	require.NoError(t, err)
+	require.Equal(t, pb.SignatureScheme_ED25519, got.Key.Scheme)
+	require.Equal(t, []byte(k.pub), got.Key.Pubkey)
+	require.Len(t, got.Key.Pubkey, ed25519.PublicKeySize)
 }
 
 func TestSignUnknownKey(t *testing.T) {
