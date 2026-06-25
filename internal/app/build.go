@@ -231,7 +231,7 @@ func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	}
 	switch {
 	case be == config.BackendFile && algo == "secp256k1":
-		return file.LoadSecp256k1(config.AbsPath(home, k.KeyFile))
+		return file.LoadSecp256k1(k.KeyFile)
 	case be == config.BackendAWSKMS && algo == "ed25519":
 		return awskms.OpenSigner(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,

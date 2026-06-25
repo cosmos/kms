@@ -256,6 +256,7 @@ func (c *Config) validateGRPC(home string) error {
 			if _, err := os.Stat(AbsPath(home, k.KeyFile)); err != nil {
 				return fmt.Errorf("config: grpc.key[%d].key_file %q: %w", i, k.KeyFile, err)
 			}
+			k.KeyFile = AbsPath(home, k.KeyFile)
 		case BackendAWSKMS:
 			if k.KeyID == "" {
 				return fmt.Errorf("config: grpc.key[%d] (awskms) requires key_id", i)
