@@ -47,6 +47,7 @@ func (m *memEd25519) Scheme() pb.SignatureScheme { return pb.SignatureScheme_ED2
 func (m *memEd25519) Sign(_ context.Context, payload []byte) ([]byte, error) {
 	return ed25519.Sign(m.priv, payload), nil
 }
+func (m *memEd25519) Close() error { return nil }
 
 var _ signing.Signer = (*memEd25519)(nil)
 

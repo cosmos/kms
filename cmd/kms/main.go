@@ -126,7 +126,7 @@ func startCmd() *cobra.Command {
 			defer mgr.Stop()
 
 			grpcErr := make(chan error, 1)
-			gs, lis, err := app.BuildGRPC(cfg, home, logger)
+			gs, cleanupGRPC, lis, err := app.BuildGRPC(cfg, home, logger)
 			if err != nil {
 				return err
 			}
@@ -137,6 +137,7 @@ func startCmd() *cobra.Command {
 						grpcErr <- serr
 					}
 				}()
+				defer cleanupGRPC()
 				defer gs.GracefulStop()
 			}
 

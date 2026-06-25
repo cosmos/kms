@@ -50,3 +50,8 @@ func (s *Signer) Scheme() pb.SignatureScheme { return pb.SignatureScheme_ED25519
 func (s *Signer) Sign(ctx context.Context, payload []byte) ([]byte, error) {
 	return s.be.Sign(ctx, payload)
 }
+
+// Close closes the backend for the aws kms based signer.
+func (s *Signer) Close() error {
+	return s.be.Close()
+}
