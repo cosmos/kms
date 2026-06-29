@@ -216,17 +216,20 @@ func (c *Config) validateGRPC(home string) error {
 	if g.Listen == "" {
 		return fmt.Errorf("config: grpc.listen is required")
 	}
-	if g.TLSCert == "" {
-		return fmt.Errorf("config: grpc.tls_cert is required")
-	}
-	if _, err := os.Stat(AbsPath(home, g.TLSCert)); err != nil {
-		return fmt.Errorf("config: grpc.tls_cert %q: %w", g.TLSCert, err)
-	}
-	if g.TLSKey == "" {
-		return fmt.Errorf("config: grpc.tls_key is required")
-	}
-	if _, err := os.Stat(AbsPath(home, g.TLSKey)); err != nil {
-		return fmt.Errorf("config: grpc.tls_key %q: %w", g.TLSKey, err)
+	// TLS is optional: both empty means an insecure (plaintext) listener for
+	// local/testing use. Setting one without the other is a misconfiguration.
+	switch {
+	case g.TLSCert == "" && g.TLSKey == "":
+		// insecure; access must be constrained by network controls.
+	case g.TLSCert == "" || g.TLSKey == "":
+		return fmt.Errorf("config: grpc.tls_cert and grpc.tls_key must be set together")
+	default:
+		if _, err := os.Stat(AbsPath(home, g.TLSCert)); err != nil {
+			return fmt.Errorf("config: grpc.tls_cert %q: %w", g.TLSCert, err)
+		}
+		if _, err := os.Stat(AbsPath(home, g.TLSKey)); err != nil {
+			return fmt.Errorf("config: grpc.tls_key %q: %w", g.TLSKey, err)
+		}
 	}
 	if len(g.Keys) == 0 {
 		return fmt.Errorf("config: grpc requires at least one grpc.key entry")

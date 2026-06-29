@@ -5,11 +5,23 @@ KMS_LDFLAGS := -X github.com/cosmos/kms/internal/version.Version=$(KMS_VERSION)
 KMS_BUILD_FLAGS := -mod=readonly -ldflags "$(KMS_LDFLAGS)"
 KMS_COVERPROFILE ?= $(BUILDDIR)/coverage.out
 KMS_COVERHTML ?= $(BUILDDIR)/coverage.html
+KMS_IMAGE ?= kms:$(KMS_VERSION)
 
 #? build: Build kms into $(BUILDDIR)
 build:
 	CGO_ENABLED=1 go build $(KMS_BUILD_FLAGS) -o $(KMS_OUTPUT) ./cmd/kms
 .PHONY: build
+
+#? docker-build: Build the kms container image (KMS_IMAGE=... tag; PKCS11=true bundles HSM provider libs)
+PKCS11 ?= false
+docker-build:
+	docker build --build-arg KMS_VERSION=$(KMS_VERSION) --build-arg PKCS11=$(PKCS11) -t $(KMS_IMAGE) .
+.PHONY: docker-build
+
+#? test-e2e: Build the image and run the container e2e test (separate module)
+test-e2e: docker-build
+	cd e2e && KMS_E2E_IMAGE=$(KMS_IMAGE) go test ./... -count=1 -v
+.PHONY: test-e2e
 
 #? install: Install kms to GOBIN
 install:

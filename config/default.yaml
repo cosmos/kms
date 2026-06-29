@@ -36,14 +36,15 @@ keys:
   #   region: us-east-1
 #
 # To also serve the SignerService gRPC API (e.g. for ibc-attestor) alongside
-# privval, add a grpc block. Requires TLS. The server performs NO caller
-# authentication or authorization: any client that can reach the listener may
-# use any configured key. Restrict access with TLS and network controls.
+# privval, add a grpc block. The server performs NO caller authentication or
+# authorization: any client that can reach the listener may use any configured
+# key. Restrict access with TLS and network controls. TLS is optional: omit
+# both tls_cert and tls_key to serve plaintext (local/testing only).
 #
 # grpc:
 #   listen: 0.0.0.0:9090
-#   tls_cert: server.crt
-#   tls_key: server.key
+#   tls_cert: server.crt   # optional; omit with tls_key for plaintext
+#   tls_key: server.key    # optional; omit with tls_cert for plaintext
 #   keys:
 #     - id: attestor-1
 #       backend: file       # optional; default "file"
