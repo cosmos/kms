@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	"github.com/cosmos/kms/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,7 +63,7 @@ func (f *fakeKMS) Sign(_ context.Context, in *kms.SignInput, _ ...func(*kms.Opti
 
 func TestOpenAndSignRoundtrip(t *testing.T) {
 	f := newFakeKMS(t)
-	s, err := open(context.Background(), f, "alias/validator", algos[algoEd25519])
+	s, err := open(context.Background(), f, "alias/validator", algos[config.AlgoED25519])
 	require.NoError(t, err)
 
 	pub, err := s.PubKey(context.Background())
@@ -80,27 +81,27 @@ func TestOpenAndSignRoundtrip(t *testing.T) {
 func TestOpenRejectsWrongKeySpec(t *testing.T) {
 	f := newFakeKMS(t)
 	f.keySpec = types.KeySpecEccSecgP256k1
-	_, err := open(context.Background(), f, "k", algos[algoEd25519])
+	_, err := open(context.Background(), f, "k", algos[config.AlgoED25519])
 	require.ErrorContains(t, err, "spec")
 }
 
 func TestOpenPropagatesGetPublicKeyError(t *testing.T) {
 	f := newFakeKMS(t)
 	f.getErr = errors.New("access denied")
-	_, err := open(context.Background(), f, "k", algos[algoEd25519])
+	_, err := open(context.Background(), f, "k", algos[config.AlgoED25519])
 	require.ErrorContains(t, err, "access denied")
 }
 
 func TestOpenRejectsUndecodablePublicKey(t *testing.T) {
 	f := newFakeKMS(t)
 	f.badPubDER = []byte("not-a-valid-spki")
-	_, err := open(context.Background(), f, "k", algos[algoEd25519])
+	_, err := open(context.Background(), f, "k", algos[config.AlgoED25519])
 	require.ErrorContains(t, err, "decode public key")
 }
 
 func TestSignPropagatesError(t *testing.T) {
 	f := newFakeKMS(t)
-	s, err := open(context.Background(), f, "k", algos[algoEd25519])
+	s, err := open(context.Background(), f, "k", algos[config.AlgoED25519])
 	require.NoError(t, err)
 	f.signErr = errors.New("throttled")
 	_, err = s.Sign(context.Background(), []byte("m"))

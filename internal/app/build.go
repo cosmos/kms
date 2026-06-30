@@ -238,21 +238,14 @@ func NewServer(c *config.Config, home string, logger log.Logger) (srv *Server, e
 // awskms/ed25519.
 func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	be, algo := k.Backend, k.Algorithm
-	if be == "" {
-		be = config.BackendFile
-	}
-	if algo == "" {
-		switch be {
-		case config.BackendAWSKMS:
-			algo = "ed25519"
-		default:
-			algo = "secp256k1"
-		}
-	}
+
+	// only currently supported configurations of the grpc signer:
+	// file backend with secp key
+	// aws kms backend with ed25519 key
 	switch {
-	case be == config.BackendFile && algo == "secp256k1":
+	case be == config.BackendFile && algo == config.AlgoSecp256k1:
 		return file.LoadSecp256k1(k.KeyFile)
-	case be == config.BackendAWSKMS && algo == "ed25519":
+	case be == config.BackendAWSKMS && algo == config.AlgoED25519:
 		return awskms.OpenSigner(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,
 			Region:    k.Region,

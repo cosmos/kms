@@ -6,13 +6,11 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	"github.com/cosmos/kms/config"
 
 	"github.com/cometbft/cometbft/crypto"
 	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
 )
-
-// algoEd25519 is the config "algorithm" name for Ed25519 keys (the default).
-const algoEd25519 = "ed25519"
 
 // keyAlgo describes how one validator key algorithm maps onto AWS KMS: which key
 // spec the KMS key must have, which signing algorithm to request, how to turn
@@ -24,7 +22,7 @@ const algoEd25519 = "ed25519"
 // — a fixSig that DER-decodes the (r,s) signature, normalizes s to low-S, and
 // emits the 64-byte r||s consensus wire form.
 type keyAlgo struct {
-	name      string
+	name      config.Algorithm
 	keySpec   types.KeySpec
 	signAlgo  types.SigningAlgorithmSpec
 	decodePub func(spki []byte) (crypto.PubKey, error)
@@ -42,9 +40,9 @@ type keyAlgo struct {
 // signing algorithm and MessageType=RAW, which is standard RFC 8032 PureEd25519
 // over the raw message — identical to the file/pkcs11 backends. The
 // signature is a fixed raw 64 bytes, so fixSig is the identity.
-var algos = map[string]keyAlgo{
-	algoEd25519: {
-		name:      algoEd25519,
+var algos = map[config.Algorithm]keyAlgo{
+	config.AlgoED25519: {
+		name:      config.AlgoED25519,
 		keySpec:   types.KeySpecEccNistEdwards25519,
 		signAlgo:  types.SigningAlgorithmSpecEd25519Sha512,
 		decodePub: decodeEd25519Pub,

@@ -48,6 +48,13 @@ const (
 	BackendAWSKMS Backend = "awskms"
 )
 
+type Algorithm string
+
+const (
+	AlgoED25519   Algorithm = "ed25519"
+	AlgoSecp256k1 Algorithm = "secp256k1"
+)
+
 // Key binds one signing key to one or more chains. Backend selects the custodian;
 // the matching embedded config block (FileConfig/PKCS11Config/AWSKMSConfig)
 // supplies its parameters. Fields belonging to other backends are ignored.
@@ -56,10 +63,10 @@ const (
 // the embedded structs: yaml.v3 rejects a duplicate inline key, and both pkcs11
 // and awskms would otherwise declare them.
 type Key struct {
-	ChainIDs  []string `yaml:"chain_ids"`
-	Backend   Backend  `yaml:"backend"`   // "file" (default) | "pkcs11" | "awskms"
-	Algorithm string   `yaml:"algorithm"` // key algorithm; defaults to "ed25519"
-	KeyID     string   `yaml:"key_id"`    // pkcs11: hex CKA_ID; awskms: KMS id, ARN, or alias/<name>
+	ChainIDs  []string  `yaml:"chain_ids"`
+	Backend   Backend   `yaml:"backend"`   // "file" (default) | "pkcs11" | "awskms"
+	Algorithm Algorithm `yaml:"algorithm"` // key algorithm; defaults to "ed25519"
+	KeyID     string    `yaml:"key_id"`    // pkcs11: hex CKA_ID; awskms: KMS id, ARN, or alias/<name>
 
 	FileConfig   `yaml:",inline"`
 	PKCS11Config `yaml:",inline"`
@@ -149,10 +156,10 @@ type GRPCConfig struct {
 // PKCS#11 is not yet supported over gRPC. The server performs no caller
 // authorization, so every configured key is usable by any connecting client.
 type GRPCKey struct {
-	ID        string  `yaml:"id"`
-	Backend   Backend `yaml:"backend"`   // "file" (default) | "awskms"
-	Algorithm string  `yaml:"algorithm"` // file: "secp256k1" (default); awskms: "ed25519" (default)
-	KeyID     string  `yaml:"key_id"`    // awskms: KMS id, ARN, or alias/<name>
+	ID        string    `yaml:"id"`
+	Backend   Backend   `yaml:"backend"`   // "file" (default) | "awskms"
+	Algorithm Algorithm `yaml:"algorithm"` // file: "secp256k1" (default); awskms: "ed25519" (default)
+	KeyID     string    `yaml:"key_id"`    // pkcs11: hex CKA_ID; awskms: KMS id, ARN, or alias/<name>
 
 	FileConfig   `yaml:",inline"`
 	AWSKMSConfig `yaml:",inline"`

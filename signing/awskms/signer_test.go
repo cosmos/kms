@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
@@ -15,7 +16,7 @@ import (
 // is ED25519, and Sign returns a 64-byte signature the same key verifies.
 func TestGRPCSignerRoundtrip(t *testing.T) {
 	f := newFakeKMS(t)
-	be, err := open(context.Background(), f, "alias/attestor", algos[algoEd25519])
+	be, err := open(context.Background(), f, "alias/attestor", algos[config.AlgoED25519])
 	require.NoError(t, err)
 	s := &Signer{be: be}
 
@@ -37,6 +38,6 @@ func TestGRPCSignerRoundtrip(t *testing.T) {
 // registry entry being silently served under the ED25519 scheme. The rejection
 // happens before any AWS call, so no network/credentials are needed.
 func TestOpenSignerRejectsNonEd25519Algorithm(t *testing.T) {
-	_, err := OpenSigner(context.Background(), Config{KeyID: "k", Algorithm: "secp256k1"})
+	_, err := OpenSigner(context.Background(), Config{KeyID: "k", Algorithm: config.AlgoSecp256k1})
 	require.ErrorContains(t, err, "only")
 }

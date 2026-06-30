@@ -13,6 +13,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	"github.com/cosmos/kms/config"
 
 	"github.com/cometbft/cometbft/crypto"
 )
@@ -21,11 +22,11 @@ import (
 // resolved by the standard AWS default chain (environment, shared config, SSO,
 // container/instance role); no secret material is read from this struct.
 type Config struct {
-	KeyID     string // KMS key id, ARN, or alias/<name>
-	Region    string // optional; falls back to the AWS default chain
-	Profile   string // optional shared-config profile
-	Endpoint  string // optional endpoint override (LocalStack / testing)
-	Algorithm string // key algorithm; defaults to "ed25519"
+	KeyID     string           // KMS key id, ARN, or alias/<name>
+	Region    string           // optional; falls back to the AWS default chain
+	Profile   string           // optional shared-config profile
+	Endpoint  string           // optional endpoint override (LocalStack / testing)
+	Algorithm config.Algorithm // key algorithm; defaults to "ed25519"
 }
 
 // kmsAPI is the subset of the AWS KMS client kms uses. *kms.Client
@@ -56,7 +57,7 @@ type Backend struct {
 func Open(ctx context.Context, cfg Config) (*Backend, error) {
 	algoName := cfg.Algorithm
 	if algoName == "" {
-		algoName = algoEd25519
+		algoName = config.AlgoED25519
 	}
 	algo, ok := algos[algoName]
 	if !ok {
