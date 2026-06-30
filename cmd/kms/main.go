@@ -126,19 +126,18 @@ func startCmd() *cobra.Command {
 			defer mgr.Stop()
 
 			grpcErr := make(chan error, 1)
-			gs, cleanupGRPC, lis, err := app.BuildGRPC(cfg, home, logger)
+			srv, err := app.NewServer(cfg, home, logger)
 			if err != nil {
 				return err
 			}
-			if gs != nil {
+
+			if srv != nil {
 				go func() {
-					logger.Info("serving signerservice gRPC", "addr", lis.Addr().String())
-					if serr := gs.Serve(lis); serr != nil {
+					if serr := srv.Serve(); serr != nil {
 						grpcErr <- serr
 					}
 				}()
-				defer cleanupGRPC()
-				defer gs.GracefulStop()
+				defer srv.Close()
 			}
 
 			logger.Info("kms started; press Ctrl-C to stop")

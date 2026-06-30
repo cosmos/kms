@@ -162,17 +162,38 @@ func newPrivvalBackend(k config.Key) (signing.Backend, error) {
 	}
 }
 
-// BuildGRPC constructs the SignerService gRPC server and its listener from the
-// grpc config. Returns (nil, nil, nil) when no grpc block is configured.
-// The caller owns starting/stopping the server and closing the listener.
-func BuildGRPC(c *config.Config, home string, logger log.Logger) (gs *grpc.Server, cleanup func(), lis net.Listener, err error) {
+// Server is a signing service GRPC server.
+type Server struct {
+	gs       *grpc.Server
+	listener net.Listener
+	logger   log.Logger
+	cleanup  func()
+}
+
+// Serve blocks and allows the server to listen for and accept new GRPC
+// connections.
+func (s *Server) Serve() error {
+	s.logger.Info("serving signerservice gRPC", "addr", s.listener.Addr().String())
+	return s.gs.Serve(s.listener)
+}
+
+// Close releases a servers resources.
+func (s *Server) Close() {
+	s.gs.GracefulStop()
+	s.cleanup()
+}
+
+// NewServer constructs a new signing service server from the given config.
+// Returns (nil, nil) when no grpc block is configured. The caller owns
+// starting/stopping the server and closing the server.
+func NewServer(c *config.Config, home string, logger log.Logger) (srv *Server, err error) {
 	if c.GRPC == nil {
-		return nil, nil, nil, nil
+		return nil, nil
 	}
 	g := c.GRPC
 
 	var closers []io.Closer
-	cleanup = func() {
+	cleanup := func() {
 		for _, cl := range closers {
 			_ = cl.Close()
 		}
@@ -190,26 +211,25 @@ func BuildGRPC(c *config.Config, home string, logger log.Logger) (gs *grpc.Serve
 	for _, k := range g.Keys {
 		s, err := newGRPCSigner(home, k)
 		if err != nil {
-			return nil, cleanup, nil, err
+			return nil, err
 		}
 		closers = append(closers, s)
 		keys[k.ID] = signing.Key{ID: k.ID, Signer: s}
 	}
-	srv := signerservice.NewServer(keys)
 
 	creds, err := credentials.NewServerTLSFromFile(config.AbsPath(home, g.TLSCert), config.AbsPath(home, g.TLSKey))
 	if err != nil {
-		return nil, cleanup, nil, fmt.Errorf("app: grpc tls: %w", err)
+		return nil, fmt.Errorf("app: grpc tls: %w", err)
 	}
-	gs = grpc.NewServer(grpc.Creds(creds))
-	gensignerservice.RegisterSignerServiceServer(gs, srv)
+	gs := grpc.NewServer(grpc.Creds(creds))
+	gensignerservice.RegisterSignerServiceServer(gs, signerservice.NewServer(keys))
 
-	lis, err = net.Listen("tcp", g.Listen)
+	lis, err := net.Listen("tcp", g.Listen)
 	if err != nil {
-		return nil, cleanup, nil, fmt.Errorf("app: grpc listen %q: %w", g.Listen, err)
+		return nil, fmt.Errorf("app: grpc listen %q: %w", g.Listen, err)
 	}
 	logger.Info("signerservice gRPC server configured", "listen", g.Listen, "keys", len(keys))
-	return gs, cleanup, lis, nil
+	return &Server{gs: gs, listener: lis, logger: logger, cleanup: cleanup}, nil
 }
 
 // newGRPCSigner constructs the signing.Signer for one grpc.key entry from its

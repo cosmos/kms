@@ -60,7 +60,7 @@ func TestBuildAWSKMSKeyUnreachableErrors(t *testing.T) {
 			},
 		}
 
-		_, _, _, err := app.BuildGRPC(c, home, log.TestingLogger())
+		_, err := app.NewServer(c, home, log.TestingLogger())
 		require.ErrorContains(t, err, "get public key")
 	})
 }
