@@ -9,10 +9,16 @@ import (
 
 	"github.com/cometbft/cometbft/crypto"
 	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
+	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
+
+	"github.com/cosmos/kms/signing/ecdsasig"
 )
 
-// algoEd25519 is the config "algorithm" name for Ed25519 keys (the default).
-const algoEd25519 = "ed25519"
+// Config "algorithm" names. Ed25519 is the default.
+const (
+	algoEd25519   = "ed25519"
+	algoSecp256k1 = "secp256k1"
+)
 
 // keyAlgo describes how one validator key algorithm maps onto AWS KMS: which key
 // spec the KMS key must have, which signing algorithm to request, how to turn
@@ -36,12 +42,20 @@ type keyAlgo struct {
 }
 
 // algos is the registry of supported key algorithms, keyed by the config
-// "algorithm" string. Ed25519 is the only entry for now.
+// "algorithm" string.
 //
 // Ed25519 uses the ECC_NIST_EDWARDS25519 key spec with the ED25519_SHA_512
 // signing algorithm and MessageType=RAW, which is standard RFC 8032 PureEd25519
 // over the raw message — identical to the file/pkcs11 backends. The
 // signature is a fixed raw 64 bytes, so fixSig is the identity.
+//
+// Secp256k1 uses the ECC_SECG_P256K1 key spec with ECDSA_SHA_256 and
+// MessageType=RAW: KMS SHA-256-hashes the consensus sign-bytes and signs,
+// matching cometbft secp256k1 consensus. KMS returns a DER (r,s) signature with
+// no low-S guarantee, so fixSig normalizes it to the 64-byte r‖s low-S form
+// cometbft verification requires. This is the consensus (privval) path; the
+// gRPC SignerService uses the recoverable form via Secp256k1Signer (see
+// secp256k1.go), which shares the same ecdsasig conversion library.
 var algos = map[string]keyAlgo{
 	algoEd25519: {
 		name:      algoEd25519,
@@ -50,6 +64,23 @@ var algos = map[string]keyAlgo{
 		decodePub: decodeEd25519Pub,
 		fixSig:    func(raw []byte) ([]byte, error) { return raw, nil },
 	},
+	algoSecp256k1: {
+		name:      algoSecp256k1,
+		keySpec:   types.KeySpecEccSecgP256k1,
+		signAlgo:  types.SigningAlgorithmSpecEcdsaSha256,
+		decodePub: decodeSecp256k1Pub,
+		fixSig:    ecdsasig.ConsensusSig,
+	},
+}
+
+// decodeSecp256k1Pub turns the DER SubjectPublicKeyInfo returned by KMS
+// GetPublicKey into a cometbft secp256k1 crypto.PubKey (33-byte compressed).
+func decodeSecp256k1Pub(spki []byte) (crypto.PubKey, error) {
+	pub, err := ecdsasig.ParsePubKeySPKI(spki)
+	if err != nil {
+		return nil, err
+	}
+	return cometsecp.PubKey(pub.SerializeCompressed()), nil
 }
 
 // decodeEd25519Pub turns the DER SubjectPublicKeyInfo returned by KMS

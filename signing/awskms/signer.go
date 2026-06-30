@@ -13,7 +13,7 @@ import (
 // Sign API. It wraps a *Backend (the consensus-path KMS signer) and reuses its
 // client, cached public key, and Sign path verbatim — KMS ed25519 is PureEd25519
 // over the raw message (MessageType=RAW), which is exactly what the gRPC ED25519
-// scheme requires. Only ed25519 is supported over gRPC today.
+// scheme requires. secp256k1 keys use Secp256k1Signer (see secp256k1.go).
 type Signer struct {
 	be *Backend
 }
@@ -22,18 +22,27 @@ type Signer struct {
 var _ signing.Signer = (*Signer)(nil)
 
 // OpenSigner resolves AWS configuration, builds a KMS client, fetches and caches
-// the key's public key, and validates its spec against the configured algorithm
-// (which must be ed25519). It performs one KMS GetPublicKey call and any failure
-// is returned (fatal at startup). Algorithm defaults to ed25519 when empty; a
-// non-ed25519 algorithm is rejected since the gRPC SignerService only supports
-// ED25519 for KMS keys.
-func OpenSigner(ctx context.Context, cfg Config) (*Signer, error) {
-	if cfg.Algorithm != "" && cfg.Algorithm != algoEd25519 {
-		return nil, fmt.Errorf("awskms: gRPC SignerService supports only %q, got %q", algoEd25519, cfg.Algorithm)
+// the key's public key, validates its spec, and returns the SignerService signer
+// for the configured algorithm. It performs one KMS GetPublicKey call and any
+// failure is returned (fatal at startup). Algorithm defaults to ed25519 when
+// empty; ed25519 serves the ED25519 scheme and secp256k1 the ECDSA_SECP256K1
+// (Ethereum) scheme. Any other algorithm is rejected (no SignerService scheme).
+func OpenSigner(ctx context.Context, cfg Config) (signing.Signer, error) {
+	algoName := cfg.Algorithm
+	if algoName == "" {
+		algoName = algoEd25519
+	}
+	switch algoName {
+	case algoEd25519, algoSecp256k1:
+	default:
+		return nil, fmt.Errorf("awskms: gRPC SignerService has no scheme for algorithm %q (unsupported)", algoName)
 	}
 	be, err := Open(ctx, cfg)
 	if err != nil {
 		return nil, err
+	}
+	if algoName == algoSecp256k1 {
+		return newSecp256k1Signer(be)
 	}
 	return &Signer{be: be}, nil
 }

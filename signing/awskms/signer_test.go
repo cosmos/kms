@@ -33,10 +33,10 @@ func TestGRPCSignerRoundtrip(t *testing.T) {
 		"SignerService pubkey must verify the KMS signature")
 }
 
-// TestOpenSignerRejectsNonEd25519Algorithm guards against a future secp256k1
-// registry entry being silently served under the ED25519 scheme. The rejection
-// happens before any AWS call, so no network/credentials are needed.
-func TestOpenSignerRejectsNonEd25519Algorithm(t *testing.T) {
-	_, err := OpenSigner(context.Background(), Config{KeyID: "k", Algorithm: "secp256k1"})
-	require.ErrorContains(t, err, "only")
+// TestOpenSignerRejectsUnsupportedAlgorithm guards the dispatch in OpenSigner:
+// an algorithm with no SignerService scheme is rejected before any AWS call, so
+// no network/credentials are needed.
+func TestOpenSignerRejectsUnsupportedAlgorithm(t *testing.T) {
+	_, err := OpenSigner(context.Background(), Config{KeyID: "k", Algorithm: "rsa-9000"})
+	require.ErrorContains(t, err, "unsupported")
 }
