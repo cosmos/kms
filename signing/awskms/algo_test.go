@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
+	"github.com/cosmos/kms/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +22,7 @@ func TestDecodeEd25519PubFromSPKI(t *testing.T) {
 
 	got, err := decodeEd25519Pub(spki)
 	require.NoError(t, err)
-	require.Equal(t, algoEd25519, got.Type())
+	require.Equal(t, string(config.AlgoED25519), got.Type())
 	require.Len(t, got.Bytes(), cometed25519.PubKeySize)
 	require.Equal(t, []byte(pub), got.Bytes())
 }
@@ -39,7 +40,7 @@ func TestDecodeEd25519PubRejectsNonEd25519(t *testing.T) {
 }
 
 func TestEd25519AlgoRegistered(t *testing.T) {
-	a, ok := algos[algoEd25519]
+	a, ok := algos[config.AlgoED25519]
 	require.True(t, ok)
 	require.Equal(t, "ECC_NIST_EDWARDS25519", string(a.keySpec))
 	require.Equal(t, "ED25519_SHA_512", string(a.signAlgo))

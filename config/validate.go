@@ -10,12 +10,12 @@ import (
 // supportedPKCS11Algorithms mirrors the algo registry in signing/pkcs11. It is
 // duplicated here so config validation does not have to import the cgo-backed
 // pkcs11 package. Keep the two in sync when adding a key type.
-var supportedPKCS11Algorithms = map[string]bool{"ed25519": true}
+var supportedPKCS11Algorithms = map[Algorithm]bool{AlgoED25519: true}
 
 // supportedAWSKMSAlgorithms mirrors the algo registry in signing/awskms. It is
 // duplicated here so config validation does not have to import the awskms
 // package. Keep the two in sync when adding a key type.
-var supportedAWSKMSAlgorithms = map[string]bool{"ed25519": true}
+var supportedAWSKMSAlgorithms = map[Algorithm]bool{AlgoED25519: true}
 
 // Validate resolves defaults and enforces fail-fast invariants. home is the base
 // directory used to resolve relative paths and default state files.
@@ -235,7 +235,8 @@ func (c *Config) validateGRPC(home string) error {
 		return fmt.Errorf("config: grpc requires at least one grpc.key entry")
 	}
 	seen := map[string]bool{}
-	for i, k := range g.Keys {
+	for i := range g.Keys {
+		k := &g.Keys[i]
 		if k.ID == "" {
 			return fmt.Errorf("config: grpc.key[%d].id is required", i)
 		}
@@ -243,11 +244,28 @@ func (c *Config) validateGRPC(home string) error {
 			return fmt.Errorf("config: duplicate grpc.key id %q", k.ID)
 		}
 		seen[k.ID] = true
-		if k.KeyFile == "" {
-			return fmt.Errorf("config: grpc.key[%d].key_file is required", i)
-		}
-		if _, err := os.Stat(AbsPath(home, k.KeyFile)); err != nil {
-			return fmt.Errorf("config: grpc.key[%d].key_file %q: %w", i, k.KeyFile, err)
+
+		// gRPC keys carry their own (small) backend validation rather than sharing
+		// the consensus per-backend validators: only file and awskms are supported
+		// here, and a gRPC key is bound by id, not chain_ids.
+		switch k.Backend {
+		case BackendFile:
+			if k.KeyFile == "" {
+				return fmt.Errorf("config: grpc.key[%d] (file) requires key_file", i)
+			}
+			if _, err := os.Stat(AbsPath(home, k.KeyFile)); err != nil {
+				return fmt.Errorf("config: grpc.key[%d].key_file %q: %w", i, k.KeyFile, err)
+			}
+			k.KeyFile = AbsPath(home, k.KeyFile)
+		case BackendAWSKMS:
+			if k.KeyID == "" {
+				return fmt.Errorf("config: grpc.key[%d] (awskms) requires key_id", i)
+			}
+			if k.Algorithm != "" && !supportedAWSKMSAlgorithms[k.Algorithm] {
+				return fmt.Errorf("config: grpc.key[%d] (awskms) has unknown algorithm %q", i, k.Algorithm)
+			}
+		default:
+			return fmt.Errorf("config: grpc.key[%d] has unsupported backend %q", i, k.Backend)
 		}
 	}
 	return nil

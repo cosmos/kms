@@ -27,8 +27,9 @@ func baseGRPC(t *testing.T) (*Config, string) {
 			TLSCert: cert,
 			TLSKey:  key,
 			Keys: []GRPCKey{{
-				ID:      "attestor-1",
-				KeyFile: kkey,
+				ID:         "attestor-1",
+				Backend:    "file",
+				FileConfig: FileConfig{KeyFile: kkey},
 			}},
 		},
 	}
@@ -75,4 +76,22 @@ func TestValidateGRPCDuplicateKeyID(t *testing.T) {
 	dup := c.GRPC.Keys[0]
 	c.GRPC.Keys = append(c.GRPC.Keys, dup)
 	require.Error(t, c.Validate(home))
+}
+
+func TestValidateGRPCAWSKMSOK(t *testing.T) {
+	c, home := baseGRPC(t)
+	c.GRPC.Keys = []GRPCKey{{ID: "a1", Backend: BackendAWSKMS, KeyID: "alias/attestor", Algorithm: "ed25519"}}
+	require.NoError(t, c.Validate(home))
+}
+
+func TestValidateGRPCAWSKMSRequiresKeyID(t *testing.T) {
+	c, home := baseGRPC(t)
+	c.GRPC.Keys = []GRPCKey{{ID: "a1", Backend: BackendAWSKMS}}
+	require.ErrorContains(t, c.Validate(home), "key_id")
+}
+
+func TestValidateGRPCAWSKMSUnknownAlgorithm(t *testing.T) {
+	c, home := baseGRPC(t)
+	c.GRPC.Keys = []GRPCKey{{ID: "a1", Backend: BackendAWSKMS, KeyID: "alias/attestor", Algorithm: "rsa-9000"}}
+	require.ErrorContains(t, c.Validate(home), "algorithm")
 }

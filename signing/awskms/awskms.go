@@ -13,6 +13,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	"github.com/cosmos/kms/config"
 
 	"github.com/cometbft/cometbft/crypto"
 )
@@ -21,11 +22,11 @@ import (
 // resolved by the standard AWS default chain (environment, shared config, SSO,
 // container/instance role); no secret material is read from this struct.
 type Config struct {
-	KeyID     string // KMS key id, ARN, or alias/<name>
-	Region    string // optional; falls back to the AWS default chain
-	Profile   string // optional shared-config profile
-	Endpoint  string // optional endpoint override (LocalStack / testing)
-	Algorithm string // key algorithm; defaults to "ed25519"
+	KeyID     string           // KMS key id, ARN, or alias/<name>
+	Region    string           // optional; falls back to the AWS default chain
+	Profile   string           // optional shared-config profile
+	Endpoint  string           // optional endpoint override (LocalStack / testing)
+	Algorithm config.Algorithm // key algorithm; defaults to "ed25519"
 }
 
 // kmsAPI is the subset of the AWS KMS client kms uses. *kms.Client
@@ -38,10 +39,11 @@ type kmsAPI interface {
 // The concrete AWS KMS client must satisfy the interface we depend on.
 var _ kmsAPI = (*kms.Client)(nil)
 
-// Signer signs via the AWS KMS Sign API. It is
+// Backend signs via the AWS KMS Sign API for the consensus (privval) path. It is
 // stateless beyond the cached public key and is safe for concurrent use (the
-// AWS SDK client is concurrency-safe).
-type Signer struct {
+// AWS SDK client is concurrency-safe). The gRPC SignerService uses Signer (see
+// signer.go), which wraps a *Backend.
+type Backend struct {
 	client kmsAPI
 	keyID  string
 	pub    crypto.PubKey
@@ -52,14 +54,10 @@ type Signer struct {
 // key's public key, and validates its spec against the configured algorithm. Any
 // failure is returned (fatal at startup for the chain). It performs one KMS
 // GetPublicKey call.
-func Open(ctx context.Context, cfg Config) (*Signer, error) {
-	algoName := cfg.Algorithm
-	if algoName == "" {
-		algoName = algoEd25519
-	}
-	algo, ok := algos[algoName]
+func Open(ctx context.Context, cfg Config) (*Backend, error) {
+	algo, ok := algos[cfg.Algorithm]
 	if !ok {
-		return nil, fmt.Errorf("awskms: unknown algorithm %q", algoName)
+		return nil, fmt.Errorf("awskms: unknown algorithm %s", string(cfg.Algorithm))
 	}
 
 	var loadOpts []func(*awsconfig.LoadOptions) error
@@ -84,7 +82,7 @@ func Open(ctx context.Context, cfg Config) (*Signer, error) {
 // open is the client-injectable core of Open: it fetches the public key,
 // verifies the key spec, and decodes the public key. Tests call it with a fake
 // kmsAPI.
-func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Signer, error) {
+func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Backend, error) {
 	out, err := client.GetPublicKey(ctx, &kms.GetPublicKeyInput{KeyId: aws.String(keyID)})
 	if err != nil {
 		return nil, fmt.Errorf("awskms: get public key for %q: %w", keyID, err)
@@ -97,14 +95,14 @@ func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Sign
 	if err != nil {
 		return nil, fmt.Errorf("awskms: decode public key for %q: %w", keyID, err)
 	}
-	return &Signer{client: client, keyID: keyID, pub: pub, algo: algo}, nil
+	return &Backend{client: client, keyID: keyID, pub: pub, algo: algo}, nil
 }
 
 // PubKey returns the validator public key cached at Open.
-func (s *Signer) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
+func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
 
 // Sign signs the canonical consensus sign-bytes via the KMS Sign API.
-func (s *Signer) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
+func (s *Backend) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
 	out, err := s.client.Sign(ctx, &kms.SignInput{
 		KeyId:            aws.String(s.keyID),
 		Message:          signBytes,
@@ -118,6 +116,6 @@ func (s *Signer) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
 }
 
 // Close is a no-op for awskms based signers.
-func (s *Signer) Close() error {
+func (s *Backend) Close() error {
 	return nil
 }
