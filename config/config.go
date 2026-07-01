@@ -48,6 +48,12 @@ const (
 	BackendAWSKMS Backend = "awskms"
 )
 
+// Signing algorithm names, as used in the "algorithm" config field.
+const (
+	AlgorithmEd25519   = "ed25519"
+	AlgorithmSecp256k1 = "secp256k1"
+)
+
 // Key binds one signing key to one or more chains. Backend selects the custodian;
 // the matching embedded config block (FileConfig/PKCS11Config/AWSKMSConfig)
 // supplies its parameters. Fields belonging to other backends are ignored.

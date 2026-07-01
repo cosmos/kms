@@ -10,12 +10,12 @@ import (
 // supportedPKCS11Algorithms mirrors the algo registry in signing/pkcs11. It is
 // duplicated here so config validation does not have to import the cgo-backed
 // pkcs11 package. Keep the two in sync when adding a key type.
-var supportedPKCS11Algorithms = map[string]bool{"ed25519": true}
+var supportedPKCS11Algorithms = map[string]bool{AlgorithmEd25519: true}
 
 // supportedAWSKMSAlgorithms mirrors the algo registry in signing/awskms. It is
 // duplicated here so config validation does not have to import the awskms
 // package. Keep the two in sync when adding a key type.
-var supportedAWSKMSAlgorithms = map[string]bool{"ed25519": true}
+var supportedAWSKMSAlgorithms = map[string]bool{AlgorithmEd25519: true, AlgorithmSecp256k1: true}
 
 // Validate resolves defaults and enforces fail-fast invariants. home is the base
 // directory used to resolve relative paths and default state files.
