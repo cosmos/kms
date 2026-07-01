@@ -224,15 +224,15 @@ func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	if algo == "" {
 		switch be {
 		case config.BackendAWSKMS:
-			algo = "ed25519"
+			algo = config.AlgorithmEd25519
 		default:
-			algo = "secp256k1"
+			algo = config.AlgorithmSecp256k1
 		}
 	}
 	switch {
-	case be == config.BackendFile && algo == "secp256k1":
+	case be == config.BackendFile && algo == config.AlgorithmSecp256k1:
 		return file.LoadSecp256k1(k.KeyFile)
-	case be == config.BackendAWSKMS && (algo == "ed25519" || algo == "secp256k1"):
+	case be == config.BackendAWSKMS && (algo == config.AlgorithmEd25519 || algo == config.AlgorithmSecp256k1):
 		return awskms.OpenSigner(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,
 			Region:    k.Region,
