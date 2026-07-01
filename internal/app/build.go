@@ -241,15 +241,14 @@ func NewServer(c *config.Config, home string, logger log.Logger) (srv *Server, e
 }
 
 // newGRPCSigner constructs the signing.Signer for one grpc.key entry from its
-// backend/algorithm. The algorithm default depends on the backend: file defaults
-// to secp256k1, awskms to ed25519. Supported combinations are file/secp256k1 and
-// awskms/ed25519.
+// backend/algorithm.
+//
+// Only currently supported configurations of the grpc signer:
+//   - File backend with secp key
+//   - AWS KMS backend with ed25519 key
 func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	be, algo := k.Backend, k.Algorithm
 
-	// only currently supported configurations of the grpc signer:
-	// file backend with secp key
-	// aws kms backend with ed25519 key
 	switch {
 	case be == config.BackendFile && algo == config.AlgoSecp256k1:
 		return file.LoadSecp256k1(k.KeyFile)
