@@ -40,8 +40,8 @@ var _ kmsAPI = (*kms.Client)(nil)
 
 // Backend signs via the AWS KMS Sign API for the consensus (privval) path. It is
 // stateless beyond the cached public key and is safe for concurrent use (the
-// AWS SDK client is concurrency-safe). The gRPC SignerService uses Signer (see
-// signer.go), which wraps a *Backend.
+// AWS SDK client is concurrency-safe). The gRPC SignerService wraps a *Backend
+// in an Ed25519Signer (ed25519.go) or Secp256k1Signer (secp256k1.go).
 type Backend struct {
 	client kmsAPI
 	keyID  string

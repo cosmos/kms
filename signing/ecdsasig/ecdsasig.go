@@ -1,14 +1,3 @@
-// Package ecdsasig converts the DER-encoded secp256k1 ECDSA signatures that
-// hardware/managed signers (AWS KMS, PKCS#11 HSMs) return into the wire forms
-// this project consumes:
-//
-//   - ConsensusSig:    64-byte r‖s low-S, the cometbft consensus (privval) form.
-//   - RecoverableSig:  65-byte r‖s‖v recoverable, the SignerService
-//     ECDSA_SECP256K1 (Ethereum-compatible) form.
-//
-// It is signer-agnostic (no AWS/PKCS#11 imports) so both the privval backends
-// and the gRPC SignerService share one implementation. KMS et al. neither
-// guarantee low-S nor return the recovery id v; both are derived here.
 package ecdsasig
 
 import (
@@ -59,11 +48,11 @@ func ConsensusSig(der []byte) ([]byte, error) {
 	return out, nil
 }
 
-// RecoverableSig converts a DER (r,s) signature over digest into the 65-byte
-// r‖s‖v recoverable form, where v is the 0/1 recovery id. Since the underlying
-// signer does not return v, it is found by trial-recovering pub from the
-// (low-S normalized) signature with each candidate. An error is returned if
-// neither candidate recovers pub — including the ~1-in-2^127 X-overflow case
+// RecoverableSig converts a DER (r,s) signature into the 65-byte
+// r‖s‖v recoverable form. Since the underlying signer does not return v,
+// it is found by trial-recovering pub from the (low-S normalized) signature
+// with each candidate.
+// An error is returned if neither candidate recovers pub, including the X-overflow case
 // (recid 2/3), which the SignerService 0/1-recovery-id protocol cannot carry.
 func RecoverableSig(der, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
 	if len(digest) != 32 {

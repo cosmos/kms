@@ -17,7 +17,7 @@ func TestGRPCSignerRoundtrip(t *testing.T) {
 	f := newFakeKMS(t)
 	be, err := open(context.Background(), f, "alias/attestor", algos[algoEd25519])
 	require.NoError(t, err)
-	s := &Signer{be: be}
+	s := &Ed25519Signer{be: be}
 
 	require.Equal(t, pb.SignatureScheme_ED25519, s.Scheme())
 
