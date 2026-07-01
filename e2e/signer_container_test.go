@@ -45,6 +45,8 @@ func TestSignerContainerE2E(t *testing.T) {
 		"  listen: 0.0.0.0:" + containerPort + "\n" +
 		"  keys:\n" +
 		"    - id: " + keyID + "\n" +
+		"      backend: file\n" +
+		"      algorithm: secp256k1\n" +
 		"      key_file: key.hex\n"
 
 	// Copy config + key into the home dir the entrypoint reads.
