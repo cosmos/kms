@@ -217,11 +217,19 @@ func NewServer(c *config.Config, home string, logger log.Logger) (srv *Server, e
 		keys[k.ID] = signing.Key{ID: k.ID, Signer: s}
 	}
 
-	creds, err := credentials.NewServerTLSFromFile(config.AbsPath(home, g.TLSCert), config.AbsPath(home, g.TLSKey))
-	if err != nil {
-		return nil, fmt.Errorf("app: grpc tls: %w", err)
+	// TLS is optional (validated together): empty cert+key serves plaintext for
+	// local/testing, where access is constrained by network controls instead.
+	var gs *grpc.Server
+	if g.TLSCert == "" && g.TLSKey == "" {
+		logger.Info("signerservice gRPC serving WITHOUT TLS (plaintext)", "listen", g.Listen)
+		gs = grpc.NewServer()
+	} else {
+		creds, err := credentials.NewServerTLSFromFile(config.AbsPath(home, g.TLSCert), config.AbsPath(home, g.TLSKey))
+		if err != nil {
+			return nil, fmt.Errorf("app: grpc tls: %w", err)
+		}
+		gs = grpc.NewServer(grpc.Creds(creds))
 	}
-	gs := grpc.NewServer(grpc.Creds(creds))
 	gensignerservice.RegisterSignerServiceServer(gs, signerservice.NewServer(keys))
 
 	lis, err := net.Listen("tcp", g.Listen)

@@ -28,6 +28,7 @@ func baseGRPC(t *testing.T) (*Config, string) {
 			TLSKey:  key,
 			Keys: []GRPCKey{{
 				ID:         "attestor-1",
+				Backend:    "file",
 				FileConfig: FileConfig{KeyFile: kkey},
 			}},
 		},
@@ -54,6 +55,19 @@ func TestValidateRejectsEmptyConfig(t *testing.T) {
 func TestValidateGRPCMissingTLSFile(t *testing.T) {
 	c, home := baseGRPC(t)
 	c.GRPC.TLSCert = "does-not-exist.crt"
+	require.Error(t, c.Validate(home))
+}
+
+func TestValidateGRPCInsecureOK(t *testing.T) {
+	c, home := baseGRPC(t)
+	c.GRPC.TLSCert = ""
+	c.GRPC.TLSKey = ""
+	require.NoError(t, c.Validate(home))
+}
+
+func TestValidateGRPCRejectsPartialTLS(t *testing.T) {
+	c, home := baseGRPC(t)
+	c.GRPC.TLSKey = "" // cert set, key empty
 	require.Error(t, c.Validate(home))
 }
 

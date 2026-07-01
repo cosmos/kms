@@ -22,7 +22,7 @@ func TestDecodeEd25519PubFromSPKI(t *testing.T) {
 
 	got, err := decodeEd25519Pub(spki)
 	require.NoError(t, err)
-	require.Equal(t, config.AlgoED25519, got.Type())
+	require.Equal(t, string(config.AlgoED25519), got.Type())
 	require.Len(t, got.Bytes(), cometed25519.PubKeySize)
 	require.Equal(t, []byte(pub), got.Bytes())
 }

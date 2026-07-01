@@ -3,6 +3,7 @@ package pkcs11
 import (
 	"fmt"
 
+	"github.com/cosmos/kms/config"
 	"github.com/miekg/pkcs11"
 
 	"github.com/cometbft/cometbft/crypto"
@@ -13,9 +14,6 @@ import (
 // v1.1.x does not export it, so it is defined here against the spec value.
 const ckmEDDSA = 0x00001057
 
-// algoEd25519 is the config "algorithm" name for Ed25519 keys (the default).
-const algoEd25519 = "ed25519"
-
 // keyAlgo describes how one validator key algorithm maps onto PKCS#11: which
 // signing mechanism to use, how to turn the token's public-key bytes into a
 // crypto.PubKey, and how to normalize the raw signature the token returns.
@@ -24,7 +22,7 @@ const algoEd25519 = "ed25519"
 // algos: its mechanism, a decodePub, and (for ECDSA-family keys) a fixSig that
 // converts the token's DER signature into the consensus wire format.
 type keyAlgo struct {
-	name      string
+	name      config.Algorithm
 	mechanism func() []*pkcs11.Mechanism
 	decodePub func(ckaECPoint []byte) (crypto.PubKey, error)
 	fixSig    func(raw []byte) ([]byte, error)
@@ -32,9 +30,9 @@ type keyAlgo struct {
 
 // algos is the registry of supported key algorithms, keyed by the config
 // "algorithm" string. Ed25519 is the only entry for now.
-var algos = map[string]keyAlgo{
-	algoEd25519: {
-		name:      algoEd25519,
+var algos = map[config.Algorithm]keyAlgo{
+	config.AlgoED25519: {
+		name:      config.AlgoED25519,
 		mechanism: func() []*pkcs11.Mechanism { return []*pkcs11.Mechanism{pkcs11.NewMechanism(ckmEDDSA, nil)} },
 		decodePub: decodeEd25519Pub,
 		fixSig:    func(raw []byte) ([]byte, error) { return raw, nil },

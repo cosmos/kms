@@ -55,13 +55,9 @@ type Backend struct {
 // failure is returned (fatal at startup for the chain). It performs one KMS
 // GetPublicKey call.
 func Open(ctx context.Context, cfg Config) (*Backend, error) {
-	algoName := cfg.Algorithm
-	if algoName == "" {
-		algoName = config.AlgoED25519
-	}
-	algo, ok := algos[algoName]
+	algo, ok := algos[cfg.Algorithm]
 	if !ok {
-		return nil, fmt.Errorf("awskms: unknown algorithm %q", algoName)
+		return nil, fmt.Errorf("awskms: unknown algorithm %s", string(cfg.Algorithm))
 	}
 
 	var loadOpts []func(*awsconfig.LoadOptions) error

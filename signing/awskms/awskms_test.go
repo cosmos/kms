@@ -68,7 +68,7 @@ func TestOpenAndSignRoundtrip(t *testing.T) {
 
 	pub, err := s.PubKey(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, algoEd25519, pub.Type())
+	require.Equal(t, "ed25519", pub.Type())
 	require.Equal(t, []byte(f.priv.Public().(ed25519.PublicKey)), pub.Bytes())
 
 	msg := []byte("canonical consensus sign-bytes")

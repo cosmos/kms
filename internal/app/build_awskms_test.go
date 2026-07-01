@@ -24,9 +24,10 @@ func TestBuildAWSKMSKeyUnreachableErrors(t *testing.T) {
 			Chains:     []config.Chain{{ID: "c1"}},
 			Validators: []config.Validator{{ChainID: "c1", Addr: "tcp://127.0.0.1:1", IdentityKey: filepath.Join(home, "id.json")}},
 			Keys: []config.Key{{
-				ChainIDs: []string{"c1"},
-				Backend:  config.BackendAWSKMS,
-				KeyID:    "alias/validator",
+				ChainIDs:  []string{"c1"},
+				Backend:   config.BackendAWSKMS,
+				Algorithm: config.AlgoED25519,
+				KeyID:     "alias/validator",
 				AWSKMSConfig: config.AWSKMSConfig{
 					Region:   "us-east-1",
 					Endpoint: "http://127.0.0.1:1", // closed port -> connection refused
@@ -49,9 +50,10 @@ func TestBuildAWSKMSKeyUnreachableErrors(t *testing.T) {
 			GRPC: &config.GRPCConfig{
 				Listen: "127.0.0.1:0",
 				Keys: []config.GRPCKey{{
-					ID:      "attestor-1",
-					Backend: config.BackendAWSKMS,
-					KeyID:   "alias/attestor",
+					ID:        "attestor-1",
+					Backend:   config.BackendAWSKMS,
+					Algorithm: config.AlgoED25519,
+					KeyID:     "alias/attestor",
 					AWSKMSConfig: config.AWSKMSConfig{
 						Region:   "us-east-1",
 						Endpoint: "http://127.0.0.1:1", // closed port -> connection refused

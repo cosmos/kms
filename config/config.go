@@ -145,8 +145,8 @@ func (v Validator) ParsedTransport() (tr Transport, addr string, validatorPeer p
 // kms serves the SignerService alongside any privval dial-out connections.
 type GRPCConfig struct {
 	Listen  string    `yaml:"listen"`   // host:port to listen on
-	TLSCert string    `yaml:"tls_cert"` // server TLS certificate file
-	TLSKey  string    `yaml:"tls_key"`  // server TLS private key file
+	TLSCert string    `yaml:"tls_cert"` // server TLS certificate file; empty (with tls_key) serves plaintext
+	TLSKey  string    `yaml:"tls_key"`  // server TLS private key file; empty (with tls_cert) serves plaintext
 	Keys    []GRPCKey `yaml:"keys"`
 }
 
@@ -157,7 +157,7 @@ type GRPCConfig struct {
 // authorization, so every configured key is usable by any connecting client.
 type GRPCKey struct {
 	ID        string    `yaml:"id"`
-	Backend   Backend   `yaml:"backend"`   // "file" (default) | "awskms"
+	Backend   Backend   `yaml:"backend"`   // "file" | "awskms"
 	Algorithm Algorithm `yaml:"algorithm"` // file backends currently supports secp256k1 and aws kms backends support ed25519 keys
 	KeyID     string    `yaml:"key_id"`    // pkcs11: hex CKA_ID; awskms: KMS id, ARN, or alias/<name>
 
