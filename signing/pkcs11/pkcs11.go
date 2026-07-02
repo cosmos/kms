@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cosmos/kms/config"
 	"github.com/miekg/pkcs11"
 
 	"github.com/cometbft/cometbft/crypto"
@@ -29,13 +30,13 @@ type Config struct {
 	PIN        string
 	PINEnv     string
 	PINFile    string
-	Algorithm  string
+	Algorithm  config.Algorithm
 }
 
-// Signer signs on a PKCS#11 token. It owns a single
+// Backend signs on a PKCS#11 token. It owns a single
 // long-lived session; the mutex serializes signing (PKCS#11 sessions are not
 // safe for concurrent use) and guards Close.
-type Signer struct {
+type Backend struct {
 	mod     *pkcs11.Ctx
 	module  string // module path, used to release the shared context on Close
 	session pkcs11.SessionHandle
@@ -49,12 +50,12 @@ type Signer struct {
 
 // Open loads the PKCS#11 module, logs into the selected token, locates the key,
 // and caches its public key. Any failure is returned (fatal at startup for the
-// chain). On success the returned Signer holds an open, logged-in session that
+// chain). On success the returned Backend holds an open, logged-in session that
 // must be released with Close.
-func Open(cfg Config) (s *Signer, err error) {
+func Open(cfg Config) (s *Backend, err error) {
 	algoName := cfg.Algorithm
 	if algoName == "" {
-		algoName = algoEd25519
+		algoName = config.AlgoED25519
 	}
 	algo, ok := algos[algoName]
 	if !ok {
@@ -124,7 +125,7 @@ func Open(cfg Config) (s *Signer, err error) {
 		return nil, fmt.Errorf("pkcs11: decode public key: %w", err)
 	}
 
-	return &Signer{mod: mod, module: cfg.Module, session: session, privH: privH, pub: pub, algo: algo}, nil
+	return &Backend{mod: mod, module: cfg.Module, session: session, privH: privH, pub: pub, algo: algo}, nil
 }
 
 // selectSlot returns the slot to use: the explicit Slot when set, otherwise the
@@ -193,10 +194,10 @@ func keySelector(cfg Config) string {
 }
 
 // PubKey returns the validator public key cached at Open.
-func (s *Signer) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
+func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
 
 // Sign signs the canonical consensus sign-bytes on the token.
-func (s *Signer) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
+func (s *Backend) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -214,7 +215,7 @@ func (s *Signer) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
 
 // Close logs out, closes the session, and tears down the module. It is
 // idempotent.
-func (s *Signer) Close() error {
+func (s *Backend) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {

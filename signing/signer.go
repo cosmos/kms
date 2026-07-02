@@ -18,6 +18,8 @@ type Signer interface {
 	Scheme() pb.SignatureScheme
 	// Sign signs payload under Scheme and returns the raw signature bytes.
 	Sign(ctx context.Context, payload []byte) ([]byte, error)
+	// Close contains any logic that should be called on cleanup.
+	Close() error
 }
 
 // Key is a configured SignerService signing identity.
