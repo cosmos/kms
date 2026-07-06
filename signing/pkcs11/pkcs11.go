@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cosmos/kms/config"
 	"github.com/miekg/pkcs11"
 
 	"github.com/cometbft/cometbft/crypto"
@@ -29,7 +30,7 @@ type Config struct {
 	PIN        string
 	PINEnv     string
 	PINFile    string
-	Algorithm  string
+	Algorithm  config.Algorithm
 }
 
 // Backend signs on a PKCS#11 token. It owns a single
@@ -54,7 +55,7 @@ type Backend struct {
 func Open(cfg Config) (s *Backend, err error) {
 	algoName := cfg.Algorithm
 	if algoName == "" {
-		algoName = algoEd25519
+		algoName = config.AlgoED25519
 	}
 	algo, ok := algos[algoName]
 	if !ok {

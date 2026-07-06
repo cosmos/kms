@@ -1,8 +1,8 @@
 // Package awskms implements a signing key backed by an AWS KMS asymmetric
 // key. The private key never leaves KMS: signing is performed by the KMS Sign
 // API. Ed25519 (ECC_NIST_EDWARDS25519 + ED25519_SHA_512, PureEdDSA over the
-// canonical sign-bytes) is the only key algorithm today; see algo.go for the
-// per-algorithm seam.
+// canonical sign-bytes) and secp256k1 (ECC_SECG_P256K1 + ECDSA_SHA_256) are the
+// supported key algorithms; see algo.go for the per-algorithm seam.
 package awskms
 
 import (
@@ -13,6 +13,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	"github.com/cosmos/kms/config"
 
 	"github.com/cometbft/cometbft/crypto"
 )
@@ -21,11 +22,11 @@ import (
 // resolved by the standard AWS default chain (environment, shared config, SSO,
 // container/instance role); no secret material is read from this struct.
 type Config struct {
-	KeyID     string // KMS key id, ARN, or alias/<name>
-	Region    string // optional; falls back to the AWS default chain
-	Profile   string // optional shared-config profile
-	Endpoint  string // optional endpoint override (LocalStack / testing)
-	Algorithm string // key algorithm; defaults to "ed25519"
+	KeyID     string           // KMS key id, ARN, or alias/<name>
+	Region    string           // optional; falls back to the AWS default chain
+	Profile   string           // optional shared-config profile
+	Endpoint  string           // optional endpoint override (LocalStack / testing)
+	Algorithm config.Algorithm // key algorithm; defaults to "ed25519"
 }
 
 // kmsAPI is the subset of the AWS KMS client kms uses. *kms.Client
@@ -41,7 +42,7 @@ var _ kmsAPI = (*kms.Client)(nil)
 // Backend signs via the AWS KMS Sign API for the consensus (privval) path. It is
 // stateless beyond the cached public key and is safe for concurrent use (the
 // AWS SDK client is concurrency-safe). The gRPC SignerService wraps a *Backend
-// in an Ed25519Signer (ed25519.go) or Secp256k1Signer (secp256k1.go).
+// in a Signer (signer.go) or Secp256k1Signer (secp256k1.go).
 type Backend struct {
 	client kmsAPI
 	keyID  string
@@ -56,11 +57,11 @@ type Backend struct {
 func Open(ctx context.Context, cfg Config) (*Backend, error) {
 	algoName := cfg.Algorithm
 	if algoName == "" {
-		algoName = algoEd25519
+		algoName = config.AlgoED25519
 	}
 	algo, ok := algos[algoName]
 	if !ok {
-		return nil, fmt.Errorf("awskms: unknown algorithm %q", algoName)
+		return nil, fmt.Errorf("awskms: unknown algorithm %s", string(algoName))
 	}
 
 	var loadOpts []func(*awsconfig.LoadOptions) error

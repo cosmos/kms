@@ -6,18 +6,13 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	"github.com/cosmos/kms/config"
 
 	"github.com/cometbft/cometbft/crypto"
 	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
 	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 
 	"github.com/cosmos/kms/signing/ecdsasig"
-)
-
-// Config "algorithm" names. Ed25519 is the default.
-const (
-	algoEd25519   = "ed25519"
-	algoSecp256k1 = "secp256k1"
 )
 
 // keyAlgo describes how one validator key algorithm maps onto AWS KMS: which key
@@ -30,7 +25,7 @@ const (
 // — a fixSig that DER-decodes the (r,s) signature, normalizes s to low-S, and
 // emits the 64-byte r||s consensus wire form.
 type keyAlgo struct {
-	name      string
+	name      config.Algorithm
 	keySpec   types.KeySpec
 	signAlgo  types.SigningAlgorithmSpec
 	decodePub func(spki []byte) (crypto.PubKey, error)
@@ -56,16 +51,16 @@ type keyAlgo struct {
 // cometbft verification requires. This is the consensus (privval) path; the
 // gRPC SignerService uses the recoverable form via Secp256k1Signer (see
 // secp256k1.go), which shares the same ecdsasig conversion library.
-var algos = map[string]keyAlgo{
-	algoEd25519: {
-		name:      algoEd25519,
+var algos = map[config.Algorithm]keyAlgo{
+	config.AlgoED25519: {
+		name:      config.AlgoED25519,
 		keySpec:   types.KeySpecEccNistEdwards25519,
 		signAlgo:  types.SigningAlgorithmSpecEd25519Sha512,
 		decodePub: decodeEd25519Pub,
 		fixSig:    func(raw []byte) ([]byte, error) { return raw, nil },
 	},
-	algoSecp256k1: {
-		name:      algoSecp256k1,
+	config.AlgoSecp256k1: {
+		name:      config.AlgoSecp256k1,
 		keySpec:   types.KeySpecEccSecgP256k1,
 		signAlgo:  types.SigningAlgorithmSpecEcdsaSha256,
 		decodePub: decodeSecp256k1Pub,

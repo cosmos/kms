@@ -14,6 +14,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
@@ -40,7 +41,7 @@ func TestLocalStackSecp256k1Roundtrip(t *testing.T) {
 	}
 	keyID := aws.ToString(created.KeyMetadata.KeyId)
 
-	be, err := open(ctx, client, keyID, algos[algoSecp256k1])
+	be, err := open(ctx, client, keyID, algos[config.AlgoSecp256k1])
 	require.NoError(t, err)
 
 	// Consensus path: 64-byte r‖s low-S, verified by the cometbft secp pubkey.

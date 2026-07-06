@@ -13,6 +13,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
@@ -52,7 +53,7 @@ func (f *fakeSecpKMS) Sign(_ context.Context, in *kms.SignInput, _ ...func(*kms.
 
 func TestGRPCSecp256k1SignerRoundtrip(t *testing.T) {
 	f := newFakeSecpKMS(t)
-	be, err := open(context.Background(), f, "alias/eth", algos[algoSecp256k1])
+	be, err := open(context.Background(), f, "alias/eth", algos[config.AlgoSecp256k1])
 	require.NoError(t, err)
 	s, err := newSecp256k1Signer(be)
 	require.NoError(t, err)
@@ -77,7 +78,7 @@ func TestGRPCSecp256k1SignerRoundtrip(t *testing.T) {
 
 func TestGRPCSecp256k1SignerPropagatesSignError(t *testing.T) {
 	f := newFakeSecpKMS(t)
-	be, err := open(context.Background(), f, "k", algos[algoSecp256k1])
+	be, err := open(context.Background(), f, "k", algos[config.AlgoSecp256k1])
 	require.NoError(t, err)
 	s, err := newSecp256k1Signer(be)
 	require.NoError(t, err)

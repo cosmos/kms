@@ -27,7 +27,7 @@ import (
 var _ signing.Signer = (*file.Secp256k1Signer)(nil)
 
 // memEd25519 is a minimal in-memory ED25519-scheme signing.Signer used to prove
-// the server's scheme-generic path (e.g. an awskms.Ed25519Signer behaves the same to
+// the server's scheme-generic path (e.g. an awskms.Signer behaves the same to
 // the server). The 32-byte digest check applies only to ECDSA_SECP256K1, so an
 // ED25519 key signs its payload as a message of any length.
 type memEd25519 struct {

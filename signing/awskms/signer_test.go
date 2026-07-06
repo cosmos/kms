@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
@@ -15,9 +16,13 @@ import (
 // is ED25519, and Sign returns a 64-byte signature the same key verifies.
 func TestGRPCSignerRoundtrip(t *testing.T) {
 	f := newFakeKMS(t)
-	be, err := open(context.Background(), f, "alias/attestor", algos[algoEd25519])
+	ctx := context.Background()
+
+	be, err := open(ctx, f, "alias/attestor", algos[config.AlgoED25519])
 	require.NoError(t, err)
-	s := &Ed25519Signer{be: be}
+
+	s, err := OpenSignerFromBackend(be, config.AlgoED25519)
+	require.NoError(t, err)
 
 	require.Equal(t, pb.SignatureScheme_ED25519, s.Scheme())
 
@@ -29,14 +34,16 @@ func TestGRPCSignerRoundtrip(t *testing.T) {
 	sig, err := s.Sign(context.Background(), msg)
 	require.NoError(t, err)
 	require.Len(t, sig, ed25519.SignatureSize)
-	require.True(t, ed25519.Verify(ed25519.PublicKey(pub), msg, sig),
-		"SignerService pubkey must verify the KMS signature")
+	require.True(t, ed25519.Verify(ed25519.PublicKey(pub), msg, sig), "SignerService pubkey must verify the KMS signature")
 }
 
-// TestOpenSignerRejectsUnsupportedAlgorithm guards the dispatch in OpenSigner:
-// an algorithm with no SignerService scheme is rejected before any AWS call, so
-// no network/credentials are needed.
+// TestOpenSignerRejectsUnsupportedAlgorithm guards the scheme dispatch: an
+// algorithm with no SignerService scheme is rejected.
 func TestOpenSignerRejectsUnsupportedAlgorithm(t *testing.T) {
-	_, err := OpenSigner(context.Background(), Config{KeyID: "k", Algorithm: "rsa-9000"})
+	f := newFakeKMS(t)
+	be, err := open(context.Background(), f, "alias/attestor", algos[config.AlgoED25519])
+	require.NoError(t, err)
+
+	_, err = OpenSignerFromBackend(be, "rsa-9000")
 	require.ErrorContains(t, err, "unsupported")
 }
