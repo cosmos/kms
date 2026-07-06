@@ -248,9 +248,6 @@ func (c *Config) validateGRPC(home string) error {
 		// gRPC keys carry their own (small) backend validation rather than sharing
 		// the consensus per-backend validators: only file and awskms are supported
 		// here, and a gRPC key is bound by id, not chain_ids.
-		if k.Backend == "" {
-			k.Backend = BackendFile
-		}
 		switch k.Backend {
 		case BackendFile:
 			if k.KeyFile == "" {

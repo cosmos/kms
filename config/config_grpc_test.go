@@ -28,6 +28,7 @@ func baseGRPC(t *testing.T) (*Config, string) {
 			TLSKey:  key,
 			Keys: []GRPCKey{{
 				ID:         "attestor-1",
+				Backend:    "file",
 				FileConfig: FileConfig{KeyFile: kkey},
 			}},
 		},
