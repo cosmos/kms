@@ -123,7 +123,7 @@ func (s *Backend) sign(ctx context.Context, msg []byte, msgType types.MessageTyp
 	out, err := s.client.Sign(ctx, &kms.SignInput{
 		KeyId:            aws.String(s.keyID),
 		Message:          msg,
-		MessageType:      types.MessageTypeRaw,
+		MessageType:      msgType,
 		SigningAlgorithm: s.algo.signAlgo,
 	})
 	if err != nil {

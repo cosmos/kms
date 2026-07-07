@@ -79,7 +79,7 @@ func (s *Signer) Sign(ctx context.Context, payload []byte) ([]byte, error) {
 	}
 	out, err := s.be.sign(ctx, payload, s.msgType)
 	if err != nil {
-		return nil, fmt.Errorf("awskms: sign with %q: %w", s.be.keyID, err)
+		return nil, err
 	}
 	return s.finalize(out, payload, s.be.pub)
 }
