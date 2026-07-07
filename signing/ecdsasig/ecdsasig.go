@@ -34,6 +34,35 @@ func decodeRS(der []byte) (r, s secp256k1.ModNScalar, err error) {
 	return r, s, nil
 }
 
+// decodeRawRS parses a raw fixed-width r‖s signature (2×32 bytes, as PKCS#11
+// CKM_ECDSA returns) into (r, s) as mod-N scalars and normalizes s to low-S.
+func decodeRawRS(rs []byte) (r, s secp256k1.ModNScalar, err error) {
+	if len(rs) != 64 {
+		return r, s, fmt.Errorf("ecdsasig: raw signature must be 64 bytes, got %d", len(rs))
+	}
+	if r.SetByteSlice(rs[:32]) || s.SetByteSlice(rs[32:]) {
+		return r, s, fmt.Errorf("ecdsasig: signature r or s is >= curve order")
+	}
+	if r.IsZero() || s.IsZero() {
+		return r, s, fmt.Errorf("ecdsasig: signature r and s must be nonzero")
+	}
+	// Low-S: collapse the malleable high half so the result is canonical.
+	if s.IsOverHalfOrder() {
+		s.Negate()
+	}
+	return r, s, nil
+}
+
+// consensusSig serializes low-S normalized scalars as the 64-byte r‖s form
+// cometbft secp256k1 consensus verification requires.
+func consensusSig(r, s secp256k1.ModNScalar) []byte {
+	rb, sb := r.Bytes(), s.Bytes()
+	out := make([]byte, 64)
+	copy(out[0:32], rb[:])
+	copy(out[32:64], sb[:])
+	return out
+}
+
 // ConsensusSig converts a DER (r,s) signature into the 64-byte r‖s low-S form
 // cometbft secp256k1 consensus verification requires.
 func ConsensusSig(der []byte) ([]byte, error) {
@@ -41,26 +70,26 @@ func ConsensusSig(der []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	rb, sb := r.Bytes(), s.Bytes()
-	out := make([]byte, 64)
-	copy(out[0:32], rb[:])
-	copy(out[32:64], sb[:])
-	return out, nil
+	return consensusSig(r, s), nil
 }
 
-// RecoverableSig converts a DER (r,s) signature into the 65-byte
-// r‖s‖v recoverable form. Since the underlying signer does not return v,
-// it is found by trial-recovering pub from the (low-S normalized) signature
-// with each candidate.
-// An error is returned if neither candidate recovers pub, including the X-overflow case
-// (recid 2/3), which the SignerService 0/1-recovery-id protocol cannot carry.
-func RecoverableSig(der, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
-	if len(digest) != 32 {
-		return nil, fmt.Errorf("ecdsasig: digest must be 32 bytes, got %d", len(digest))
-	}
-	r, s, err := decodeRS(der)
+// ConsensusSigRS is ConsensusSig for a raw 64-byte r‖s signature.
+func ConsensusSigRS(rs []byte) ([]byte, error) {
+	r, s, err := decodeRawRS(rs)
 	if err != nil {
 		return nil, err
+	}
+	return consensusSig(r, s), nil
+}
+
+// recoverableSig builds the 65-byte r‖s‖v form from low-S normalized scalars.
+// Since the underlying signer does not return v, it is found by
+// trial-recovering pub from the signature with each candidate. An error is
+// returned if neither candidate recovers pub, including the X-overflow case
+// (recid 2/3), which the SignerService 0/1-recovery-id protocol cannot carry.
+func recoverableSig(r, s secp256k1.ModNScalar, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
+	if len(digest) != 32 {
+		return nil, fmt.Errorf("ecdsasig: digest must be 32 bytes, got %d", len(digest))
 	}
 	rb, sb := r.Bytes(), s.Bytes()
 
@@ -79,6 +108,25 @@ func RecoverableSig(der, digest []byte, pub *secp256k1.PublicKey) ([]byte, error
 		}
 	}
 	return nil, fmt.Errorf("ecdsasig: no 0/1 recovery id recovers the public key")
+}
+
+// RecoverableSig converts a DER (r,s) signature into the 65-byte r‖s‖v
+// recoverable form.
+func RecoverableSig(der, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
+	r, s, err := decodeRS(der)
+	if err != nil {
+		return nil, err
+	}
+	return recoverableSig(r, s, digest, pub)
+}
+
+// RecoverableSigRS is RecoverableSig for a raw 64-byte r‖s signature.
+func RecoverableSigRS(rs, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
+	r, s, err := decodeRawRS(rs)
+	if err != nil {
+		return nil, err
+	}
+	return recoverableSig(r, s, digest, pub)
 }
 
 // ParsePubKeySPKI parses the DER X.509 SubjectPublicKeyInfo that AWS KMS

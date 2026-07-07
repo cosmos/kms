@@ -1,7 +1,7 @@
 // Package pkcs11 implements a signing key backed by a PKCS#11 token or HSM.
 // The private key never leaves the token: signing is performed on-device via the
-// PKCS#11 C_Sign operation. Ed25519 (CKM_EDDSA) is the only key algorithm today;
-// see algo.go for the per-algorithm seam.
+// PKCS#11 C_Sign operation. Ed25519 (CKM_EDDSA) and secp256k1 (CKM_ECDSA family)
+// are the supported key algorithms; see algo.go for the per-algorithm seam.
 package pkcs11
 
 import (
@@ -15,6 +15,8 @@ import (
 	"github.com/miekg/pkcs11"
 
 	"github.com/cometbft/cometbft/crypto"
+	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
+	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 )
 
 // Config describes how to open a key on a PKCS#11 token. Exactly one of
@@ -41,7 +43,7 @@ type Backend struct {
 	module  string // module path, used to release the shared context on Close
 	session pkcs11.SessionHandle
 	privH   pkcs11.ObjectHandle
-	pub     crypto.PubKey
+	pub     []byte
 	algo    keyAlgo
 
 	mu     sync.Mutex
@@ -193,22 +195,43 @@ func keySelector(cfg Config) string {
 	}
 }
 
-// PubKey returns the validator public key cached at Open.
-func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
+// PubKey returns the validator public key cached at Open, wrapped in the
+// cometbft key type. keyAlgo is protocol-neutral, so the comet-specific
+// mapping lives here on the consensus Backend.
+func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) {
+	switch s.algo.name {
+	case config.AlgoED25519:
+		return cometed25519.PubKey(s.pub), nil
+	case config.AlgoSecp256k1:
+		return cometsecp.PubKey(s.pub), nil
+	default:
+		return nil, fmt.Errorf("pkcs11: no cometbft pubkey type for algorithm %s", string(s.algo.name))
+	}
+}
 
-// Sign signs the canonical consensus sign-bytes on the token.
-func (s *Backend) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
+// sign performs C_Sign with the given mechanism, serializing access to the
+// session, and returns the raw signature untouched.
+func (s *Backend) sign(mechs []*pkcs11.Mechanism, data []byte) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
 		return nil, fmt.Errorf("pkcs11: signer is closed")
 	}
-	if err := s.mod.SignInit(s.session, s.algo.mechanism(), s.privH); err != nil {
+	if err := s.mod.SignInit(s.session, mechs, s.privH); err != nil {
 		return nil, fmt.Errorf("pkcs11: sign init: %w", err)
 	}
-	raw, err := s.mod.Sign(s.session, signBytes)
+	raw, err := s.mod.Sign(s.session, data)
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11: sign: %w", err)
+	}
+	return raw, nil
+}
+
+// Sign signs the canonical consensus sign-bytes on the token.
+func (s *Backend) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
+	raw, err := s.sign(s.algo.mechanism(), signBytes)
+	if err != nil {
+		return nil, err
 	}
 	return s.algo.fixSig(raw)
 }

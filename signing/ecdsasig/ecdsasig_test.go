@@ -185,3 +185,85 @@ func TestParsePubKeySPKIRoundTrip(t *testing.T) {
 		t.Fatal("parsed pubkey mismatch")
 	}
 }
+
+// rawRS signs digest with priv and returns the raw 64-byte r‖s encoding,
+// standing in for what PKCS#11 CKM_ECDSA returns.
+func rawRS(t *testing.T, priv *secp256k1.PrivateKey, digest []byte) []byte {
+	t.Helper()
+	// Compact form is <27+recid>‖R‖S; strip the header byte.
+	compact := ecdsa.SignCompact(priv, digest, false)
+	return compact[1:]
+}
+
+// highSRS replaces s with N-s in a raw r‖s signature.
+func highSRS(t *testing.T, rs []byte) []byte {
+	t.Helper()
+	var sc secp256k1.ModNScalar
+	sc.SetByteSlice(rs[32:])
+	sc.Negate()
+	neg := sc.Bytes()
+	out := append(append([]byte{}, rs[:32]...), neg[:]...)
+	return out
+}
+
+func TestConsensusSigRSVerifies(t *testing.T) {
+	priv := testKey(t)
+	msg := []byte("consensus sign bytes")
+	digest := sha256.Sum256(msg)
+	rs := rawRS(t, priv, digest[:])
+
+	sig, err := ConsensusSigRS(rs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := cometsecp.PubKey(priv.PubKey().SerializeCompressed())
+	if !pub.VerifySignature(msg, sig) {
+		t.Fatal("cometbft verification failed")
+	}
+}
+
+func TestConsensusSigRSNormalizesHighS(t *testing.T) {
+	priv := testKey(t)
+	digest := sha256.Sum256([]byte("m"))
+	rs := rawRS(t, priv, digest[:])
+
+	a, err := ConsensusSigRS(rs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ConsensusSigRS(highSRS(t, rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Fatal("high-S and low-S inputs must normalize to the same signature")
+	}
+}
+
+func TestRecoverableSigRSRecoversPubKey(t *testing.T) {
+	priv := testKey(t)
+	digest := sha256.Sum256([]byte("eth digest"))
+	rs := rawRS(t, priv, digest[:])
+
+	sig, err := RecoverableSigRS(highSRS(t, rs), digest[:], priv.PubKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sig) != 65 || sig[64] > 1 {
+		t.Fatalf("bad signature shape: len=%d v=%d", len(sig), sig[64])
+	}
+	compact := append([]byte{27 + sig[64]}, sig[:64]...)
+	recovered, _, err := ecdsa.RecoverCompact(compact, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !recovered.IsEqual(priv.PubKey()) {
+		t.Fatal("recovered pubkey mismatch")
+	}
+}
+
+func TestConsensusSigRSRejectsBadLength(t *testing.T) {
+	if _, err := ConsensusSigRS(make([]byte, 63)); err == nil {
+		t.Fatal("expected error for 63-byte signature")
+	}
+}
