@@ -11,18 +11,15 @@ import (
 	"github.com/cosmos/kms/signing/ecdsasig"
 )
 
-// keyAlgo describes how one key algorithm maps onto AWS KMS: which key spec
-// the KMS key must have, which signing algorithm to request, how to turn the
-// DER SubjectPublicKeyInfo that GetPublicKey returns into canonical public key
-// bytes, and how to normalize the signature KMS returns. It is protocol-neutral
-// (bytes in, bytes out): Backend layers the cometbft types on top for the
-// consensus path, and Signer layers the SignerService scheme conventions.
+// keyAlgo describes how one key algorithm maps onto AWS KMS:
+//   - which key spec the KMS key must have
+//   - which signing algorithm to request
+//   - how to turn the DER SubjectPublicKeyInfo that GetPublicKey returns into
+//     canonical public key bytes
+//   - how to normalize the signature KMS returns
 //
-// Adding a new key type (ml-dsa, ...) is a new entry in algos — its key spec,
-// its signing algorithm, a decodePub, and — for ECDSA-family keys — a fixSig
-// that DER-decodes the (r,s) signature, normalizes s to low-S, and emits the
-// 64-byte r||s consensus wire form — plus its cometbft pubkey mapping in
-// Backend.PubKey and its scheme conventions in OpenSignerFromBackend.
+// Adding a new key type (ml-dsa, ...) is a new entry in algos plus its cometbft
+// pubkey mapping in Backend.PubKey and its scheme conventions in OpenSignerFromBackend.
 type keyAlgo struct {
 	name     config.Algorithm
 	keySpec  types.KeySpec
@@ -32,9 +29,11 @@ type keyAlgo struct {
 	// compressed secp256k1).
 	decodePub func(spki []byte) ([]byte, error)
 	// fixSig converts the raw signature KMS returns into the consensus wire
-	// format. Ed25519 KMS signatures are already raw 64-byte R||S, so it is the
-	// identity; ECDSA-family keys will DER-decode (r,s), apply low-S, and emit
-	// 64-byte r||s here.
+	// format.
+	//   - Ed25519 KMS signatures are already raw 64-byte R||S, so it is the
+	//     identity
+	//   - ECDSA-family keys will DER-decode (r,s), apply low-S, and emit
+	//     64-byte r||s here.
 	fixSig func(raw []byte) ([]byte, error)
 }
 

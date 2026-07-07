@@ -57,13 +57,9 @@ type Backend struct {
 // failure is returned (fatal at startup for the chain). It performs one KMS
 // GetPublicKey call.
 func Open(ctx context.Context, cfg Config) (*Backend, error) {
-	algoName := cfg.Algorithm
-	if algoName == "" {
-		algoName = config.AlgoED25519
-	}
-	algo, ok := algos[algoName]
+	algo, ok := algos[cfg.Algorithm]
 	if !ok {
-		return nil, fmt.Errorf("awskms: unknown algorithm %s", string(algoName))
+		return nil, fmt.Errorf("awskms: unknown algorithm %s", string(cfg.Algorithm))
 	}
 
 	var loadOpts []func(*awsconfig.LoadOptions) error
@@ -104,9 +100,7 @@ func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Back
 	return &Backend{client: client, keyID: keyID, pub: pub, algo: algo}, nil
 }
 
-// PubKey returns the validator public key cached at Open, wrapped in the
-// cometbft key type. keyAlgo is protocol-neutral, so the comet-specific
-// mapping lives here on the consensus Backend.
+// PubKey returns the validator public key cached at Open.
 func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) {
 	switch s.algo.name {
 	case config.AlgoED25519:
