@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
@@ -79,16 +77,11 @@ func (s *Signer) Sign(ctx context.Context, payload []byte) ([]byte, error) {
 	if s.msgType == types.MessageTypeDigest && len(payload) != 32 {
 		return nil, fmt.Errorf("awskms: %s digest must be 32 bytes, got %d", string(s.be.algo.name), len(payload))
 	}
-	out, err := s.be.client.Sign(ctx, &kms.SignInput{
-		KeyId:            aws.String(s.be.keyID),
-		Message:          payload,
-		MessageType:      s.msgType,
-		SigningAlgorithm: s.be.algo.signAlgo,
-	})
+	out, err := s.be.sign(ctx, payload, s.msgType)
 	if err != nil {
 		return nil, fmt.Errorf("awskms: sign with %q: %w", s.be.keyID, err)
 	}
-	return s.finalize(out.Signature, payload, s.be.pub)
+	return s.finalize(out, payload, s.be.pub)
 }
 
 // recoverableSig converts the DER (r,s) signature KMS returned over digest

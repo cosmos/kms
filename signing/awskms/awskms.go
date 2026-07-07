@@ -118,18 +118,27 @@ func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) {
 	}
 }
 
-// Sign signs the canonical consensus sign-bytes via the KMS Sign API.
-func (s *Backend) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
+// sign calls the KMS Sign API and returns the raw signature untouched.
+func (s *Backend) sign(ctx context.Context, msg []byte, msgType types.MessageType) ([]byte, error) {
 	out, err := s.client.Sign(ctx, &kms.SignInput{
 		KeyId:            aws.String(s.keyID),
-		Message:          signBytes,
+		Message:          msg,
 		MessageType:      types.MessageTypeRaw,
 		SigningAlgorithm: s.algo.signAlgo,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("awskms: sign with %q: %w", s.keyID, err)
 	}
-	return s.algo.fixSig(out.Signature)
+	return out.Signature, nil
+}
+
+// Sign signs the canonical consensus sign-bytes via the KMS Sign API.
+func (s *Backend) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
+	sig, err := s.sign(ctx, signBytes, types.MessageTypeRaw)
+	if err != nil {
+		return nil, err
+	}
+	return s.algo.fixSig(sig)
 }
 
 // Close is a no-op for awskms based signers.
