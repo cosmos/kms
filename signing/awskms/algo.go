@@ -8,27 +8,29 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/cosmos/kms/config"
 
-	"github.com/cometbft/cometbft/crypto"
-	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
-	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
-
 	"github.com/cosmos/kms/signing/ecdsasig"
 )
 
-// keyAlgo describes how one validator key algorithm maps onto AWS KMS: which key
-// spec the KMS key must have, which signing algorithm to request, how to turn
-// the DER SubjectPublicKeyInfo that GetPublicKey returns into a crypto.PubKey,
-// and how to normalize the signature KMS returns.
+// keyAlgo describes how one key algorithm maps onto AWS KMS: which key spec
+// the KMS key must have, which signing algorithm to request, how to turn the
+// DER SubjectPublicKeyInfo that GetPublicKey returns into canonical public key
+// bytes, and how to normalize the signature KMS returns. It is protocol-neutral
+// (bytes in, bytes out): Backend layers the cometbft types on top for the
+// consensus path, and Signer layers the SignerService scheme conventions.
 //
-// Adding a new key type (secp256k1, ml-dsa, ...) is a single new entry in algos:
-// its key spec, its signing algorithm, a decodePub, and — for ECDSA-family keys
-// — a fixSig that DER-decodes the (r,s) signature, normalizes s to low-S, and
-// emits the 64-byte r||s consensus wire form.
+// Adding a new key type (ml-dsa, ...) is a new entry in algos — its key spec,
+// its signing algorithm, a decodePub, and — for ECDSA-family keys — a fixSig
+// that DER-decodes the (r,s) signature, normalizes s to low-S, and emits the
+// 64-byte r||s consensus wire form — plus its cometbft pubkey mapping in
+// Backend.PubKey and its scheme conventions in OpenSignerFromBackend.
 type keyAlgo struct {
-	name      config.Algorithm
-	keySpec   types.KeySpec
-	signAlgo  types.SigningAlgorithmSpec
-	decodePub func(spki []byte) (crypto.PubKey, error)
+	name     config.Algorithm
+	keySpec  types.KeySpec
+	signAlgo types.SigningAlgorithmSpec
+	// decodePub turns the DER SubjectPublicKeyInfo from GetPublicKey into the
+	// scheme's canonical public key bytes (32-byte raw ed25519, 33-byte
+	// compressed secp256k1).
+	decodePub func(spki []byte) ([]byte, error)
 	// fixSig converts the raw signature KMS returns into the consensus wire
 	// format. Ed25519 KMS signatures are already raw 64-byte R||S, so it is the
 	// identity; ECDSA-family keys will DER-decode (r,s), apply low-S, and emit
@@ -49,8 +51,8 @@ type keyAlgo struct {
 // matching cometbft secp256k1 consensus. KMS returns a DER (r,s) signature with
 // no low-S guarantee, so fixSig normalizes it to the 64-byte r‖s low-S form
 // cometbft verification requires. This is the consensus (privval) path; the
-// gRPC SignerService uses the recoverable form via Secp256k1Signer (see
-// secp256k1.go), which shares the same ecdsasig conversion library.
+// gRPC SignerService signs pre-hashed digests and uses the recoverable form
+// instead (see signer.go), sharing the same ecdsasig conversion library.
 var algos = map[config.Algorithm]keyAlgo{
 	config.AlgoED25519: {
 		name:      config.AlgoED25519,
@@ -69,18 +71,18 @@ var algos = map[config.Algorithm]keyAlgo{
 }
 
 // decodeSecp256k1Pub turns the DER SubjectPublicKeyInfo returned by KMS
-// GetPublicKey into a cometbft secp256k1 crypto.PubKey (33-byte compressed).
-func decodeSecp256k1Pub(spki []byte) (crypto.PubKey, error) {
+// GetPublicKey into the 33-byte compressed public key.
+func decodeSecp256k1Pub(spki []byte) ([]byte, error) {
 	pub, err := ecdsasig.ParsePubKeySPKI(spki)
 	if err != nil {
 		return nil, err
 	}
-	return cometsecp.PubKey(pub.SerializeCompressed()), nil
+	return pub.SerializeCompressed(), nil
 }
 
 // decodeEd25519Pub turns the DER SubjectPublicKeyInfo returned by KMS
-// GetPublicKey into an ed25519 crypto.PubKey.
-func decodeEd25519Pub(spki []byte) (crypto.PubKey, error) {
+// GetPublicKey into the raw 32-byte public key.
+func decodeEd25519Pub(spki []byte) ([]byte, error) {
 	parsed, err := x509.ParsePKIXPublicKey(spki)
 	if err != nil {
 		return nil, fmt.Errorf("parse SubjectPublicKeyInfo: %w", err)
@@ -89,10 +91,8 @@ func decodeEd25519Pub(spki []byte) (crypto.PubKey, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected ed25519 public key, got %T", parsed)
 	}
-	if len(edPub) != cometed25519.PubKeySize {
-		return nil, fmt.Errorf("ed25519 public key: expected %d bytes, got %d", cometed25519.PubKeySize, len(edPub))
+	if len(edPub) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("ed25519 public key: expected %d bytes, got %d", ed25519.PublicKeySize, len(edPub))
 	}
-	pub := make(cometed25519.PubKey, cometed25519.PubKeySize)
-	copy(pub, edPub)
-	return pub, nil
+	return edPub, nil
 }

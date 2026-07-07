@@ -16,6 +16,8 @@ import (
 	"github.com/cosmos/kms/config"
 
 	"github.com/cometbft/cometbft/crypto"
+	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
+	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 )
 
 // Config describes how to reach a signing key in AWS KMS. Credentials are
@@ -42,11 +44,11 @@ var _ kmsAPI = (*kms.Client)(nil)
 // Backend signs via the AWS KMS Sign API for the consensus (privval) path. It is
 // stateless beyond the cached public key and is safe for concurrent use (the
 // AWS SDK client is concurrency-safe). The gRPC SignerService wraps a *Backend
-// in a Signer (signer.go) or Secp256k1Signer (secp256k1.go).
+// in a Signer (signer.go).
 type Backend struct {
 	client kmsAPI
 	keyID  string
-	pub    crypto.PubKey
+	pub    []byte // canonical public key bytes for the algorithm's scheme
 	algo   keyAlgo
 }
 
@@ -102,8 +104,19 @@ func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Back
 	return &Backend{client: client, keyID: keyID, pub: pub, algo: algo}, nil
 }
 
-// PubKey returns the validator public key cached at Open.
-func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
+// PubKey returns the validator public key cached at Open, wrapped in the
+// cometbft key type. keyAlgo is protocol-neutral, so the comet-specific
+// mapping lives here on the consensus Backend.
+func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) {
+	switch s.algo.name {
+	case config.AlgoED25519:
+		return cometed25519.PubKey(s.pub), nil
+	case config.AlgoSecp256k1:
+		return cometsecp.PubKey(s.pub), nil
+	default:
+		return nil, fmt.Errorf("awskms: no cometbft pubkey type for algorithm %s", string(s.algo.name))
+	}
+}
 
 // Sign signs the canonical consensus sign-bytes via the KMS Sign API.
 func (s *Backend) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {

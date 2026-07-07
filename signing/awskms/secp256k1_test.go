@@ -55,7 +55,7 @@ func TestGRPCSecp256k1SignerRoundtrip(t *testing.T) {
 	f := newFakeSecpKMS(t)
 	be, err := open(context.Background(), f, "alias/eth", algos[config.AlgoSecp256k1])
 	require.NoError(t, err)
-	s, err := newSecp256k1Signer(be)
+	s, err := OpenSignerFromBackend(be, config.AlgoSecp256k1)
 	require.NoError(t, err)
 
 	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, s.Scheme())
@@ -80,7 +80,7 @@ func TestGRPCSecp256k1SignerPropagatesSignError(t *testing.T) {
 	f := newFakeSecpKMS(t)
 	be, err := open(context.Background(), f, "k", algos[config.AlgoSecp256k1])
 	require.NoError(t, err)
-	s, err := newSecp256k1Signer(be)
+	s, err := OpenSignerFromBackend(be, config.AlgoSecp256k1)
 	require.NoError(t, err)
 
 	f.signErr = errors.New("throttled")

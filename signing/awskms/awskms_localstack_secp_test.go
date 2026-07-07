@@ -54,7 +54,7 @@ func TestLocalStackSecp256k1Roundtrip(t *testing.T) {
 	require.True(t, pub.VerifySignature(msg, sig))
 
 	// gRPC path: 65-byte recoverable signature over a 32-byte digest.
-	gs, err := newSecp256k1Signer(be)
+	gs, err := OpenSignerFromBackend(be, config.AlgoSecp256k1)
 	require.NoError(t, err)
 	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, gs.Scheme())
 	require.Len(t, gs.PubKey(), 33)
