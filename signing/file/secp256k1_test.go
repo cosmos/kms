@@ -72,7 +72,7 @@ func TestSignRejectsBadDigestLength(t *testing.T) {
 	require.Error(t, err)
 }
 
-func x(t *testing.T) {
+func TestLoadSecp256k1EthFromStringRejectsBadKey(t *testing.T) {
 	_, err := LoadSecp256k1EthFromString("not-hex")
 	require.Error(t, err)
 
