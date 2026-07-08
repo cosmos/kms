@@ -19,8 +19,8 @@ import (
 //     canonical public key bytes
 //   - how to normalize the signature KMS returns
 //
-// Adding a new key type (ml-dsa, ...) is a new entry in algos plus its cometbft
-// pubkey mapping in Backend.PubKey and its scheme conventions in OpenSignerFromBackend.
+// Adding a new key type (ml-dsa, ...) is a new entry in algos plus, for
+// consensus use, its cometbft pubkey mapping in internal/signer.
 type keyAlgo struct {
 	name     config.Algorithm
 	keySpec  types.KeySpec

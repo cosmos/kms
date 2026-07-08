@@ -16,7 +16,7 @@ import (
 	"github.com/cosmos/kms/signing"
 )
 
-// Backend is a file-backed Ed25519 key held in memory.
+// Ed25519Signer is a file-backed Ed25519 key held in memory.
 type Ed25519Signer struct {
 	priv crypto.PrivKey
 	pub  crypto.PubKey

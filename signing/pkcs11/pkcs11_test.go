@@ -23,7 +23,7 @@ func TestOpenPubKeySignVerify(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 
-	require.Equal(t, want.Bytes(), s.PubKey(), "backend pubkey must match the on-token key")
+	require.Equal(t, want.Bytes(), s.PubKey(), "signer pubkey must match the on-token key")
 
 	msg := []byte("canonical-consensus-sign-bytes")
 	sig, err := s.Sign(context.Background(), msg)

@@ -36,7 +36,7 @@ func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Sign
 
 // fakeKMS is an in-process stand-in for AWS KMS backed by a real Ed25519 key. It
 // lets the public-key-parse and sign->verify path run offline, exercising
-// exactly the conversion logic in the backend.
+// exactly the conversion logic in the signer.
 type fakeKMS struct {
 	priv      ed25519.PrivateKey
 	keySpec   types.KeySpec

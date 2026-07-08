@@ -27,12 +27,12 @@ type ChainSigner struct {
 
 var _ types.PrivValidator = (*ChainSigner)(nil)
 
-// NewChainSigner builds the signer. The backend is wrapped as a crypto.PrivKey
+// NewChainSigner builds the signer. The key signer is wrapped as a crypto.PrivKey
 // and handed to privval.NewFilePV; any pre-existing sign-state at stateFile is
 // reloaded so double-sign protection survives restarts. The directory containing
 // stateFile must already exist (config validation guarantees this).
-func NewChainSigner(chainID string, be signing.Signer, stateFile string) (*ChainSigner, error) {
-	adapter, err := newBackendPrivKey(context.Background(), be)
+func NewChainSigner(chainID string, s signing.Signer, stateFile string) (*ChainSigner, error) {
+	adapter, err := newSignerPrivKey(context.Background(), s)
 	if err != nil {
 		return nil, fmt.Errorf("chain %q: load pubkey: %w", chainID, err)
 	}

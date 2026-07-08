@@ -25,10 +25,10 @@ type Signer struct {
 // The adapter must satisfy the SignerService signer contract.
 var _ signing.Signer = (*Signer)(nil)
 
-// Open resolves a new aws kms signer from an existing aws kms
-// Backend. Ed25519 serves the ED25519 scheme (raw message signing); secp256k1
-// serves the ECDSA_SECP256K1 (Ethereum) scheme, signing 32-byte digests and
-// returning 65-byte r‖s‖v recoverable signatures.
+// Open resolves AWS configuration, builds a KMS client, fetches and caches the
+// key's public key, and validates its spec against the configured algorithm.
+// It performs one KMS GetPublicKey call; any failure is returned (fatal at
+// startup).
 func Open(ctx context.Context, cfg Config) (signing.Signer, error) {
 	algo, ok := algos[cfg.Algorithm]
 	if !ok {
@@ -88,7 +88,7 @@ func (s *Signer) Sign(ctx context.Context, payload []byte) ([]byte, error) {
 	return s.algo.fixSig(out.Signature, payload, s.pub)
 }
 
-// Close closes the backend for the aws kms based signer.
+// Close is a no-op for awskms signers.
 func (s *Signer) Close() error {
 	return nil
 }
