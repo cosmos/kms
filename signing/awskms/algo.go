@@ -81,16 +81,6 @@ var algos = map[config.Algorithm]keyAlgo{
 	},
 }
 
-// recoverableSig converts the DER (r,s) signature KMS returned over digest
-// into the 65-byte r‖s‖v recoverable form the ECDSA_SECP256K1 scheme requires.
-func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
-	dpub, err := secp256k1.ParsePubKey(pub)
-	if err != nil {
-		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
-	}
-	return ecdsasig.RecoverableSig(raw, digest, dpub)
-}
-
 // decodeSecp256k1Pub turns the DER SubjectPublicKeyInfo returned by KMS
 // GetPublicKey into the 33-byte compressed public key.
 func decodeSecp256k1Pub(spki []byte) ([]byte, error) {
@@ -99,6 +89,16 @@ func decodeSecp256k1Pub(spki []byte) ([]byte, error) {
 		return nil, err
 	}
 	return pub.SerializeCompressed(), nil
+}
+
+// recoverableSig converts the DER (r,s) signature KMS returned over digest
+// into the 65-byte r‖s‖v recoverable form the ECDSA_SECP256K1 scheme requires.
+func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
+	dpub, err := secp256k1.ParsePubKey(pub)
+	if err != nil {
+		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
+	}
+	return ecdsasig.RecoverableSig(raw, digest, dpub)
 }
 
 // decodeEd25519Pub turns the DER SubjectPublicKeyInfo returned by KMS
