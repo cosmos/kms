@@ -30,7 +30,9 @@ const (
 // fetches the configured key, signs a digest, and verifies the returned recoverable
 // signature recovers to that key.
 func TestSignerContainerE2E(t *testing.T) {
-	if _, err := exec.LookPath("docker"); err != nil {
+	// LookPath alone is not enough: a docker CLI without a running daemon makes
+	// testcontainers panic instead of erroring, so probe the daemon directly.
+	if err := exec.Command("docker", "info").Run(); err != nil {
 		t.Skip("docker not available")
 	}
 	image := envOr("KMS_E2E_IMAGE", "kms:e2e")
@@ -46,7 +48,7 @@ func TestSignerContainerE2E(t *testing.T) {
 		"  keys:\n" +
 		"    - id: " + keyID + "\n" +
 		"      backend: file\n" +
-		"      algorithm: secp256k1\n" +
+		"      algorithm: secp256k1eth\n" +
 		"      key_file: key.hex\n"
 
 	// Copy config + key into the home dir the entrypoint reads.
@@ -73,7 +75,7 @@ func TestSignerContainerE2E(t *testing.T) {
 	keys := keysResp.GetKeys()
 	require.Len(t, keys, 1)
 	require.Equal(t, keyID, keys[0].GetId())
-	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, keys[0].GetScheme())
+	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1ETH, keys[0].GetScheme())
 	require.Equal(t, wantPub, keys[0].GetPubkey())
 
 	// Sign a 32-byte digest and verify the recoverable signature.
