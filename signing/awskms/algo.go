@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/cosmos/kms/config"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
 	"github.com/cosmos/kms/signing/ecdsasig"
 )
@@ -23,6 +24,7 @@ import (
 type keyAlgo struct {
 	name     config.Algorithm
 	keySpec  types.KeySpec
+	msgType  types.MessageType
 	signAlgo types.SigningAlgorithmSpec
 	// decodePub turns the DER SubjectPublicKeyInfo from GetPublicKey into the
 	// scheme's canonical public key bytes (32-byte raw ed25519, 33-byte
@@ -34,7 +36,7 @@ type keyAlgo struct {
 	//     identity
 	//   - ECDSA-family keys will DER-decode (r,s), apply low-S, and emit
 	//     64-byte r||s here.
-	fixSig func(raw []byte) ([]byte, error)
+	fixSig func(raw, digest, pub []byte) ([]byte, error)
 }
 
 // algos is the registry of supported key algorithms, keyed by the config
@@ -56,17 +58,37 @@ var algos = map[config.Algorithm]keyAlgo{
 	config.AlgoED25519: {
 		name:      config.AlgoED25519,
 		keySpec:   types.KeySpecEccNistEdwards25519,
+		msgType:   types.MessageTypeRaw,
 		signAlgo:  types.SigningAlgorithmSpecEd25519Sha512,
 		decodePub: decodeEd25519Pub,
-		fixSig:    func(raw []byte) ([]byte, error) { return raw, nil },
+		fixSig:    func(raw, digest, pub []byte) ([]byte, error) { return raw, nil },
 	},
 	config.AlgoSecp256k1: {
 		name:      config.AlgoSecp256k1,
 		keySpec:   types.KeySpecEccSecgP256k1,
+		msgType:   types.MessageTypeRaw,
 		signAlgo:  types.SigningAlgorithmSpecEcdsaSha256,
 		decodePub: decodeSecp256k1Pub,
-		fixSig:    ecdsasig.ConsensusSig,
+		fixSig:    func(raw, digest, pub []byte) ([]byte, error) { return ecdsasig.ConsensusSig(raw) },
 	},
+	config.AlgoSecp256k1Eth: {
+		name:      config.AlgoSecp256k1Eth,
+		keySpec:   types.KeySpecEccSecgP256k1,
+		msgType:   types.MessageTypeDigest,
+		signAlgo:  types.SigningAlgorithmSpecEcdsaSha256,
+		decodePub: decodeSecp256k1Pub,
+		fixSig:    recoverableSig,
+	},
+}
+
+// recoverableSig converts the DER (r,s) signature KMS returned over digest
+// into the 65-byte r‖s‖v recoverable form the ECDSA_SECP256K1 scheme requires.
+func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
+	dpub, err := secp256k1.ParsePubKey(pub)
+	if err != nil {
+		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
+	}
+	return ecdsasig.RecoverableSig(raw, digest, dpub)
 }
 
 // decodeSecp256k1Pub turns the DER SubjectPublicKeyInfo returned by KMS

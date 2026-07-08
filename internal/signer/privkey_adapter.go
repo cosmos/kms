@@ -2,9 +2,13 @@ package signer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cometbft/cometbft/crypto"
+	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
+	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/signing"
 )
 
@@ -13,7 +17,7 @@ import (
 // signing path; Bytes and Equals are intentionally unsupported for remote keys.
 type backendPrivKey struct {
 	ctx context.Context
-	be  signing.Backend
+	be  signing.Signer
 	pub crypto.PubKey
 }
 
@@ -21,10 +25,15 @@ var _ crypto.PrivKey = (*backendPrivKey)(nil)
 
 // newBackendPrivKey caches the public key (so PubKey is cheap and FilePV's
 // address computation works) and returns the adapter.
-func newBackendPrivKey(ctx context.Context, be signing.Backend) (crypto.PrivKey, error) {
-	pub, err := be.PubKey(ctx)
-	if err != nil {
-		return nil, err
+func newBackendPrivKey(ctx context.Context, be signing.Signer) (crypto.PrivKey, error) {
+	var pub crypto.PubKey
+	switch be.Scheme() {
+	case config.AlgoED25519:
+		pub = cometed25519.PubKey(be.PubKey())
+	case config.AlgoSecp256k1:
+		pub = cometsecp.PubKey(be.PubKey())
+	default:
+		return nil, fmt.Errorf("awskms: no cometbft pubkey type for algorithm %s", string(be.Scheme()))
 	}
 	return &backendPrivKey{ctx: ctx, be: be, pub: pub}, nil
 }

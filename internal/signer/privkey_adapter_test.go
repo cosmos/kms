@@ -7,12 +7,15 @@ import (
 	"github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/kms/config"
 )
 
-// stubBackend is a minimal Backend for tests.
+// stubBackend is a minimal ed25519 signing.Signer for tests.
 type stubBackend struct{ priv crypto.PrivKey }
 
-func (s stubBackend) PubKey(context.Context) (crypto.PubKey, error)    { return s.priv.PubKey(), nil }
+func (s stubBackend) PubKey() []byte                                   { return s.priv.PubKey().Bytes() }
+func (s stubBackend) Scheme() config.Algorithm                         { return config.AlgoED25519 }
 func (s stubBackend) Sign(_ context.Context, b []byte) ([]byte, error) { return s.priv.Sign(b) }
 func (s stubBackend) Close() error                                     { return nil }
 
@@ -32,4 +35,15 @@ func TestAdapterSatisfiesPrivKeyAndSigns(t *testing.T) {
 	sig, err := pk.Sign(msg)
 	require.NoError(t, err)
 	require.True(t, pk.PubKey().VerifySignature(msg, sig))
+}
+
+// ethStub reports the eth scheme, which has no cometbft pubkey type.
+type ethStub struct{ stubBackend }
+
+func (ethStub) Scheme() config.Algorithm { return config.AlgoSecp256k1Eth }
+
+func TestAdapterRejectsSchemeWithoutCometPubKey(t *testing.T) {
+	be := ethStub{stubBackend{priv: ed25519.GenPrivKey()}}
+	_, err := newBackendPrivKey(context.Background(), be)
+	require.ErrorContains(t, err, "no cometbft pubkey type")
 }

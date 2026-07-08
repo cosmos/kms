@@ -29,7 +29,7 @@ func TestBuildWiresChainSigners(t *testing.T) {
 	c := &config.Config{
 		Chains:     []config.Chain{{ID: "c1"}},
 		Validators: []config.Validator{{ChainID: "c1", Addr: "tcp://127.0.0.1:1", IdentityKey: identPath}},
-		Keys:       []config.Key{{ChainIDs: []string{"c1"}, Backend: config.BackendFile, FileConfig: config.FileConfig{KeyFile: keyPath}}},
+		Keys:       []config.Key{{ChainIDs: []string{"c1"}, Backend: config.BackendFile, Algorithm: config.AlgoED25519, FileConfig: config.FileConfig{KeyFile: keyPath}}},
 	}
 	require.NoError(t, c.Validate(home))
 
@@ -44,7 +44,7 @@ func TestBuildFailsOnMissingKeyFile(t *testing.T) {
 	c := &config.Config{
 		Chains:     []config.Chain{{ID: "c1"}},
 		Validators: []config.Validator{{ChainID: "c1", Addr: "tcp://127.0.0.1:1", IdentityKey: filepath.Join(home, "id.json")}},
-		Keys:       []config.Key{{ChainIDs: []string{"c1"}, Backend: config.BackendFile, FileConfig: config.FileConfig{KeyFile: filepath.Join(home, "missing.json")}}},
+		Keys:       []config.Key{{ChainIDs: []string{"c1"}, Backend: config.BackendFile, Algorithm: config.AlgoED25519, FileConfig: config.FileConfig{KeyFile: filepath.Join(home, "missing.json")}}},
 	}
 	require.NoError(t, c.Validate(home))
 	_, cleanup, err := app.Build(c, log.TestingLogger())

@@ -45,7 +45,7 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 	}()
 
 	// chainID -> backend (one backend per chain).
-	backends := map[string]signing.Backend{}
+	backends := map[string]signing.Signer{}
 	for _, k := range c.Keys {
 		s, berr := newPrivvalBackend(k)
 		if berr != nil {
@@ -114,10 +114,13 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 // newPrivvalBackend constructs the signing backend for one config key. The
 // returned io.Closer is non-nil only for backends that hold OS resources
 // (pkcs11) and must be closed on shutdown.
-func newPrivvalBackend(k config.Key) (signing.Backend, error) {
+func newPrivvalBackend(k config.Key) (signing.Signer, error) {
 	switch k.Backend {
 	case config.BackendFile:
-		s, err := file.LoadEd25519(k.KeyFile)
+		s, err := file.Open(file.Config{
+			Algorithm: k.Algorithm,
+			KeyFile:   k.KeyFile,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -250,10 +253,10 @@ func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	be, algo := k.Backend, k.Algorithm
 
 	switch {
-	case be == config.BackendFile && algo == config.AlgoSecp256k1:
-		return file.LoadSecp256k1(k.KeyFile)
+	case be == config.BackendFile && algo == config.AlgoSecp256k1Eth:
+		return file.LoadSecp256k1Eth(k.KeyFile)
 	case be == config.BackendAWSKMS && (algo == config.AlgoED25519 || algo == config.AlgoSecp256k1):
-		return awskms.OpenSigner(context.Background(), awskms.Config{
+		return awskms.Open(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,
 			Region:    k.Region,
 			Profile:   k.Profile,

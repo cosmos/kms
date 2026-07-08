@@ -12,18 +12,22 @@ import (
 	"github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
+	"github.com/cosmos/kms/config"
+	"github.com/cosmos/kms/signing"
 )
 
 // Backend is a file-backed Ed25519 key held in memory.
-type Backend struct {
+type Ed25519Signer struct {
 	priv crypto.PrivKey
 	pub  crypto.PubKey
 }
 
+var _ signing.Signer = (*Ed25519Signer)(nil)
+
 // LoadEd25519 reads a key file. It accepts either a CometBFT priv_validator_key.json
 // (typed JSON with a "priv_key" field) or a file containing the base64-encoded
 // 64-byte Ed25519 private key.
-func LoadEd25519(path string) (*Backend, error) {
+func LoadEd25519(path string) (*Ed25519Signer, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("file: read key file %q: %w", path, err)
@@ -33,7 +37,7 @@ func LoadEd25519(path string) (*Backend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("file: parse key file %q: %w", path, err)
 	}
-	return &Backend{priv: priv, pub: priv.PubKey()}, nil
+	return &Ed25519Signer{priv: priv, pub: priv.PubKey()}, nil
 }
 
 func parseKey(raw []byte) (crypto.PrivKey, error) {
@@ -65,15 +69,18 @@ func parseKey(raw []byte) (crypto.PrivKey, error) {
 	return ed25519.PrivKey(dec), nil
 }
 
+// Scheme reports the config.Algorithm.
+func (s *Ed25519Signer) Scheme() config.Algorithm { return config.AlgoED25519 }
+
 // PubKey returns the public key.
-func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
+func (s *Ed25519Signer) PubKey() []byte { return s.pub.Bytes() }
 
 // Sign signs signBytes with the in-memory private key.
-func (s *Backend) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
+func (s *Ed25519Signer) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
 	return s.priv.Sign(signBytes)
 }
 
 // Close is a no-op for file based signers.
-func (s *Backend) Close() error {
+func (s *Ed25519Signer) Close() error {
 	return nil
 }

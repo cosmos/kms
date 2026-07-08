@@ -11,16 +11,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/kms/config"
-	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
-// TestLocalStackSecp256k1Roundtrip exercises both secp256k1 paths against real
-// KMS semantics: the consensus Backend (RAW message, KMS SHA-256, 64-byte r‖s
-// low-S verified by cometbft) and the gRPC Secp256k1Signer (DIGEST message,
+// TestLocalStackSecp256k1Roundtrip exercises both secp256k1 algos on the same
+// KMS key against real KMS semantics: secp256k1 (RAW message, KMS SHA-256,
+// 64-byte r‖s low-S verified by cometbft) and secp256k1eth (DIGEST message,
 // 65-byte r‖s‖v that recovers the signing pubkey).
 func TestLocalStackSecp256k1Roundtrip(t *testing.T) {
 	ctx := context.Background()
@@ -41,22 +41,21 @@ func TestLocalStackSecp256k1Roundtrip(t *testing.T) {
 	}
 	keyID := aws.ToString(created.KeyMetadata.KeyId)
 
-	be, err := open(ctx, client, keyID, algos[config.AlgoSecp256k1])
+	// Consensus algo: 64-byte r‖s low-S, verified by the cometbft secp pubkey.
+	cs, err := open(ctx, client, keyID, algos[config.AlgoSecp256k1])
 	require.NoError(t, err)
-
-	// Consensus path: 64-byte r‖s low-S, verified by the cometbft secp pubkey.
-	pub, err := be.PubKey(ctx)
-	require.NoError(t, err)
+	require.Equal(t, config.AlgoSecp256k1, cs.Scheme())
 	msg := []byte("localstack secp consensus sign-bytes")
-	sig, err := be.Sign(ctx, msg)
+	sig, err := cs.Sign(ctx, msg)
 	require.NoError(t, err)
 	require.Len(t, sig, 64)
-	require.True(t, pub.VerifySignature(msg, sig))
+	require.True(t, cometsecp.PubKey(cs.PubKey()).VerifySignature(msg, sig))
 
-	// gRPC path: 65-byte recoverable signature over a 32-byte digest.
-	gs, err := OpenSignerFromBackend(be, config.AlgoSecp256k1)
+	// Ethereum algo on the same key: 65-byte recoverable signature over a
+	// 32-byte digest.
+	gs, err := open(ctx, client, keyID, algos[config.AlgoSecp256k1Eth])
 	require.NoError(t, err)
-	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, gs.Scheme())
+	require.Equal(t, config.AlgoSecp256k1Eth, gs.Scheme())
 	require.Len(t, gs.PubKey(), 33)
 
 	digest := sha256.Sum256([]byte("localstack eth digest"))

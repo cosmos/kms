@@ -31,7 +31,7 @@ var _ types.PrivValidator = (*ChainSigner)(nil)
 // and handed to privval.NewFilePV; any pre-existing sign-state at stateFile is
 // reloaded so double-sign protection survives restarts. The directory containing
 // stateFile must already exist (config validation guarantees this).
-func NewChainSigner(chainID string, be signing.Backend, stateFile string) (*ChainSigner, error) {
+func NewChainSigner(chainID string, be signing.Signer, stateFile string) (*ChainSigner, error) {
 	adapter, err := newBackendPrivKey(context.Background(), be)
 	if err != nil {
 		return nil, fmt.Errorf("chain %q: load pubkey: %w", chainID, err)

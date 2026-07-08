@@ -11,6 +11,7 @@ import (
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/signing/file"
 )
 
@@ -23,14 +24,13 @@ func TestLoadBase64AndSign(t *testing.T) {
 	s, err := file.LoadEd25519(path)
 	require.NoError(t, err)
 
-	pub, err := s.PubKey(context.Background())
-	require.NoError(t, err)
-	require.True(t, pub.Equals(priv.PubKey()))
+	require.Equal(t, config.AlgoED25519, s.Scheme())
+	require.Equal(t, priv.PubKey().Bytes(), s.PubKey())
 
 	msg := []byte("canonical-sign-bytes")
 	sig, err := s.Sign(context.Background(), msg)
 	require.NoError(t, err)
-	require.True(t, pub.VerifySignature(msg, sig))
+	require.True(t, priv.PubKey().VerifySignature(msg, sig))
 }
 
 func TestLoadPrivValidatorKeyJSON(t *testing.T) {
@@ -46,9 +46,7 @@ func TestLoadPrivValidatorKeyJSON(t *testing.T) {
 
 	s, err := file.LoadEd25519(path)
 	require.NoError(t, err)
-	pub, err := s.PubKey(context.Background())
-	require.NoError(t, err)
-	require.True(t, pub.Equals(priv.PubKey()))
+	require.Equal(t, priv.PubKey().Bytes(), s.PubKey())
 }
 
 func TestLoadRejectsMissingFile(t *testing.T) {

@@ -18,17 +18,18 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
+	"github.com/cosmos/kms/config"
 	pb "github.com/cosmos/kms/gen/signerservice"
 	"github.com/cosmos/kms/signing"
 	"github.com/cosmos/kms/signing/file"
 )
 
-// Secp256k1Signer must satisfy the signing.Signer contract the server signs through.
-var _ signing.Signer = (*file.Secp256k1Signer)(nil)
+// Secp256k1EthSigner must satisfy the signing.Signer contract the server signs through.
+var _ signing.Signer = (*file.Secp256k1EthSigner)(nil)
 
 // memEd25519 is a minimal in-memory ED25519-scheme signing.Signer used to prove
 // the server's scheme-generic path (e.g. an awskms.Signer behaves the same to
-// the server). The 32-byte digest check applies only to ECDSA_SECP256K1, so an
+// the server). The 32-byte digest check applies only to secp256k1eth, so an
 // ED25519 key signs its payload as a message of any length.
 type memEd25519 struct {
 	pub  ed25519.PublicKey
@@ -42,8 +43,8 @@ func newMemEd25519(t *testing.T) *memEd25519 {
 	return &memEd25519{pub: pub, priv: priv}
 }
 
-func (m *memEd25519) PubKey() []byte             { return m.pub }
-func (m *memEd25519) Scheme() pb.SignatureScheme { return pb.SignatureScheme_ED25519 }
+func (m *memEd25519) PubKey() []byte           { return m.pub }
+func (m *memEd25519) Scheme() config.Algorithm { return config.AlgoED25519 }
 func (m *memEd25519) Sign(_ context.Context, payload []byte) ([]byte, error) {
 	return ed25519.Sign(m.priv, payload), nil
 }
@@ -51,12 +52,12 @@ func (m *memEd25519) Close() error { return nil }
 
 var _ signing.Signer = (*memEd25519)(nil)
 
-func newKey(t *testing.T) *file.Secp256k1Signer {
+func newKey(t *testing.T) *file.Secp256k1EthSigner {
 	t.Helper()
 	dir := t.TempDir()
 	p := filepath.Join(dir, "k.hex")
 	require.NoError(t, os.WriteFile(p, []byte("4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"), 0o600))
-	s, err := file.LoadSecp256k1(p)
+	s, err := file.LoadSecp256k1Eth(p)
 	require.NoError(t, err)
 	return s
 }
@@ -82,7 +83,7 @@ func TestSignRecoverableRecovers(t *testing.T) {
 	srv := NewServer(map[string]signing.Key{"attestor-1": {ID: "attestor-1", Signer: k}})
 	client := dialTestServer(t, srv)
 
-	// ECDSA_SECP256K1 signs a 32-byte digest; the client hashes the message.
+	// secp256k1eth signs a 32-byte digest; the client hashes the message.
 	digest := sha256.Sum256([]byte("attest this"))
 	resp, err := client.Sign(context.Background(), &pb.SignRequest{
 		KeyId:   "attestor-1",
@@ -140,7 +141,7 @@ func TestGetKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "attestor-1", resp.Key.Id)
 	require.Equal(t, k.PubKey(), resp.Key.Pubkey)
-	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, resp.Key.Scheme)
+	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1ETH, resp.Key.Scheme)
 }
 
 func TestSignBadDigestLength(t *testing.T) {

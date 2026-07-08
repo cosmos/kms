@@ -12,12 +12,14 @@ import (
 	"github.com/cometbft/cometbft/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/signer"
 )
 
 type memBackend struct{ priv crypto.PrivKey }
 
-func (m memBackend) PubKey(context.Context) (crypto.PubKey, error)    { return m.priv.PubKey(), nil }
+func (m memBackend) PubKey() []byte                                   { return m.priv.PubKey().Bytes() }
+func (m memBackend) Scheme() config.Algorithm                         { return config.AlgoED25519 }
 func (m memBackend) Sign(_ context.Context, b []byte) ([]byte, error) { return m.priv.Sign(b) }
 func (m memBackend) Close() error                                     { return nil }
 

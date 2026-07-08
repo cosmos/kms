@@ -3,7 +3,7 @@ package signing
 import (
 	"context"
 
-	pb "github.com/cosmos/kms/gen/signerservice"
+	"github.com/cosmos/kms/config"
 )
 
 // Signer is the capability every SignerService key provides: it describes itself
@@ -14,8 +14,8 @@ import (
 type Signer interface {
 	// PubKey returns the public key in the canonical encoding for Scheme.
 	PubKey() []byte
-	// Scheme reports the signature scheme this key signs under.
-	Scheme() pb.SignatureScheme
+	// Scheme reports the Algorithm this key signs under.
+	Scheme() config.Algorithm
 	// Sign signs payload under Scheme and returns the raw signature bytes.
 	Sign(ctx context.Context, payload []byte) ([]byte, error)
 	// Close contains any logic that should be called on cleanup.

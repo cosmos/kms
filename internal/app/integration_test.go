@@ -20,6 +20,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/manager"
 	"github.com/cosmos/kms/internal/signer"
 	"github.com/cosmos/kms/internal/transport"
@@ -27,7 +28,7 @@ import (
 	"github.com/cosmos/kms/signing/file"
 )
 
-// failingBackend is a signing.Backend that is reachable and exposes a real public
+// failingBackend is a signing.Signer that is reachable and exposes a real public
 // key, but whose Sign always returns a fixed error. It simulates a signing
 // backend (HSM, cloud KMS, ...) that is connected yet rejects the signing
 // operation itself — as opposed to a network/connection failure.
@@ -36,11 +37,12 @@ type failingBackend struct {
 	err error
 }
 
-var _ signing.Backend = failingBackend{}
+var _ signing.Signer = failingBackend{}
 
-func (b failingBackend) PubKey(context.Context) (crypto.PubKey, error) { return b.pub, nil }
-func (b failingBackend) Sign(context.Context, []byte) ([]byte, error)  { return nil, b.err }
-func (b failingBackend) Close() error                                  { return nil }
+func (b failingBackend) PubKey() []byte                               { return b.pub.Bytes() }
+func (b failingBackend) Scheme() config.Algorithm                     { return config.AlgoED25519 }
+func (b failingBackend) Sign(context.Context, []byte) ([]byte, error) { return nil, b.err }
+func (b failingBackend) Close() error                                 { return nil }
 
 // writeKey writes a file-backend key file and returns its path.
 func writeKey(t *testing.T, dir string) string {
