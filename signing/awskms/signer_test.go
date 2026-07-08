@@ -36,3 +36,14 @@ func TestGRPCSignerRoundtrip(t *testing.T) {
 	require.Len(t, sig, ed25519.SignatureSize)
 	require.True(t, ed25519.Verify(ed25519.PublicKey(pub), msg, sig), "SignerService pubkey must verify the KMS signature")
 }
+
+// TestOpenSignerRejectsUnsupportedAlgorithm guards the scheme dispatch: an
+// algorithm with no SignerService scheme is rejected.
+func TestOpenSignerRejectsUnsupportedAlgorithm(t *testing.T) {
+	f := newFakeKMS(t)
+	be, err := open(context.Background(), f, "alias/attestor", algos[config.AlgoED25519])
+	require.NoError(t, err)
+
+	_, err = OpenSignerFromBackend(be, "rsa-9000")
+	require.ErrorContains(t, err, "unsupported")
+}

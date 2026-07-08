@@ -7,10 +7,33 @@ import (
 	"crypto/x509"
 	"testing"
 
-	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cosmos/kms/config"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDecodeSecp256k1PubFromSPKI(t *testing.T) {
+	priv, err := secp256k1.GeneratePrivateKey()
+	require.NoError(t, err)
+	spki := secp256k1SPKIForTest(t, priv.PubKey())
+
+	got, err := decodeSecp256k1Pub(spki)
+	require.NoError(t, err)
+	require.Len(t, got, 33)
+	require.Equal(t, priv.PubKey().SerializeCompressed(), got)
+}
+
+func TestDecodeSecp256k1PubRejectsGarbage(t *testing.T) {
+	_, err := decodeSecp256k1Pub([]byte("not-a-spki"))
+	require.Error(t, err)
+}
+
+func TestSecp256k1AlgoRegistered(t *testing.T) {
+	a, ok := algos[config.AlgoSecp256k1]
+	require.True(t, ok)
+	require.Equal(t, "ECC_SECG_P256K1", string(a.keySpec))
+	require.Equal(t, "ECDSA_SHA_256", string(a.signAlgo))
+}
 
 func TestDecodeEd25519PubFromSPKI(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
@@ -22,9 +45,8 @@ func TestDecodeEd25519PubFromSPKI(t *testing.T) {
 
 	got, err := decodeEd25519Pub(spki)
 	require.NoError(t, err)
-	require.Equal(t, string(config.AlgoED25519), got.Type())
-	require.Len(t, got.Bytes(), cometed25519.PubKeySize)
-	require.Equal(t, []byte(pub), got.Bytes())
+	require.Len(t, got, ed25519.PublicKeySize)
+	require.Equal(t, []byte(pub), got)
 }
 
 func TestDecodeEd25519PubRejectsGarbage(t *testing.T) {

@@ -84,6 +84,12 @@ func TestValidateGRPCAWSKMSOK(t *testing.T) {
 	require.NoError(t, c.Validate(home))
 }
 
+func TestValidateGRPCAWSKMSSecp256k1OK(t *testing.T) {
+	c, home := baseGRPC(t)
+	c.GRPC.Keys = []GRPCKey{{ID: "a1", Backend: BackendAWSKMS, KeyID: "alias/eth", Algorithm: "secp256k1"}}
+	require.NoError(t, c.Validate(home))
+}
+
 func TestValidateGRPCAWSKMSRequiresKeyID(t *testing.T) {
 	c, home := baseGRPC(t)
 	c.GRPC.Keys = []GRPCKey{{ID: "a1", Backend: BackendAWSKMS}}

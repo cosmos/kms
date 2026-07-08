@@ -1,8 +1,8 @@
 // Package awskms implements a signing key backed by an AWS KMS asymmetric
 // key. The private key never leaves KMS: signing is performed by the KMS Sign
 // API. Ed25519 (ECC_NIST_EDWARDS25519 + ED25519_SHA_512, PureEdDSA over the
-// canonical sign-bytes) is the only key algorithm today; see algo.go for the
-// per-algorithm seam.
+// canonical sign-bytes) and secp256k1 (ECC_SECG_P256K1 + ECDSA_SHA_256) are the
+// supported key algorithms; see algo.go for the per-algorithm seam.
 package awskms
 
 import (
@@ -16,6 +16,8 @@ import (
 	"github.com/cosmos/kms/config"
 
 	"github.com/cometbft/cometbft/crypto"
+	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
+	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 )
 
 // Config describes how to reach a signing key in AWS KMS. Credentials are
@@ -46,7 +48,7 @@ var _ kmsAPI = (*kms.Client)(nil)
 type Backend struct {
 	client kmsAPI
 	keyID  string
-	pub    crypto.PubKey
+	pub    []byte // canonical public key bytes for the algorithm's scheme
 	algo   keyAlgo
 }
 
@@ -99,20 +101,38 @@ func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Back
 }
 
 // PubKey returns the validator public key cached at Open.
-func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
+func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) {
+	switch s.algo.name {
+	case config.AlgoED25519:
+		return cometed25519.PubKey(s.pub), nil
+	case config.AlgoSecp256k1:
+		return cometsecp.PubKey(s.pub), nil
+	default:
+		return nil, fmt.Errorf("awskms: no cometbft pubkey type for algorithm %s", string(s.algo.name))
+	}
+}
 
-// Sign signs the canonical consensus sign-bytes via the KMS Sign API.
-func (s *Backend) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
+// sign calls the KMS Sign API and returns the raw signature untouched.
+func (s *Backend) sign(ctx context.Context, msg []byte, msgType types.MessageType) ([]byte, error) {
 	out, err := s.client.Sign(ctx, &kms.SignInput{
 		KeyId:            aws.String(s.keyID),
-		Message:          signBytes,
-		MessageType:      types.MessageTypeRaw,
+		Message:          msg,
+		MessageType:      msgType,
 		SigningAlgorithm: s.algo.signAlgo,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("awskms: sign with %q: %w", s.keyID, err)
 	}
-	return s.algo.fixSig(out.Signature)
+	return out.Signature, nil
+}
+
+// Sign signs the canonical consensus sign-bytes via the KMS Sign API.
+func (s *Backend) Sign(ctx context.Context, signBytes []byte) ([]byte, error) {
+	sig, err := s.sign(ctx, signBytes, types.MessageTypeRaw)
+	if err != nil {
+		return nil, err
+	}
+	return s.algo.fixSig(sig)
 }
 
 // Close is a no-op for awskms based signers.

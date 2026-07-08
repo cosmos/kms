@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
@@ -66,7 +67,7 @@ func TestLocalStackSignRoundtrip(t *testing.T) {
 	}
 	keyID := aws.ToString(created.KeyMetadata.KeyId)
 
-	s, err := open(ctx, client, keyID, algos[algoEd25519])
+	s, err := open(ctx, client, keyID, algos[config.AlgoED25519])
 	require.NoError(t, err)
 
 	pub, err := s.PubKey(ctx)
