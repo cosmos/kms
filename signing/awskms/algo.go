@@ -35,7 +35,7 @@ type keyAlgo struct {
 	//   - Ed25519 KMS signatures are already raw 64-byte R||S, so it is the
 	//     identity
 	//   - ECDSA-family keys will DER-decode (r,s), apply low-S, and emit
-	//     64-byte r||s here.
+	//     64-byte r||s or 65-byte r||s||v here.
 	fixSig func(raw, digest, pub []byte) ([]byte, error)
 }
 
@@ -92,7 +92,7 @@ func decodeSecp256k1Pub(spki []byte) ([]byte, error) {
 }
 
 // recoverableSig converts the DER (r,s) signature KMS returned over digest
-// into the 65-byte r‖s‖v recoverable form the ECDSA_SECP256K1 scheme requires.
+// into the 65-byte r‖s‖v recoverable form the ECDSA_SECP256K1ETH scheme requires.
 func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
 	dpub, err := secp256k1.ParsePubKey(pub)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/kms/signing"
 )
 
+// Config encompasses the subset of config values relevant for constructing a file signer.
 type Config struct {
 	Algorithm config.Algorithm
 	KeyFile   string
