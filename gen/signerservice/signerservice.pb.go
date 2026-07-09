@@ -25,9 +25,9 @@ type SignatureScheme int32
 
 const (
 	SignatureScheme_UNKNOWN            SignatureScheme = 0
-	SignatureScheme_ECDSA_SECP256K1    SignatureScheme = 1 // input: 32-byte raw raw message (not hashed);  output: 64-byte r‖s low-S signature with input hashed by sha256
-	SignatureScheme_ED25519            SignatureScheme = 2 // input: message (not hashed);                  output: 64-byte signature with input hashed by sha256
-	SignatureScheme_ECDSA_SECP256K1ETH SignatureScheme = 3 // input: 32-byte digest (pre-hashed);        output: 65-byte r‖s‖v (recoverable); input is not hashed (to support keccak)
+	SignatureScheme_ECDSA_SECP256K1    SignatureScheme = 1 // input: 32-byte raw message (not hashed);  output: 64-byte r‖s low-S signature with input hashed by sha256
+	SignatureScheme_ED25519            SignatureScheme = 2 // input: message (not hashed);              output: 64-byte signature with input hashed by sha256
+	SignatureScheme_ECDSA_SECP256K1ETH SignatureScheme = 3 // input: 32-byte digest (pre-hashed);    output: 65-byte r‖s‖v (recoverable); input is not hashed (to support keccak)
 )
 
 // Enum value maps for SignatureScheme.

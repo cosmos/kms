@@ -12,9 +12,9 @@ service SignerService {
 
 enum SignatureScheme {
   UNKNOWN = 0;
-  ECDSA_SECP256K1 = 1;   // input: 32-byte raw raw message (not hashed);  output: 64-byte r‖s low-S signature with input hashed by sha256
-  ED25519         = 2;   // input: message (not hashed);                  output: 64-byte signature with input hashed by sha256
-  ECDSA_SECP256K1ETH = 3;   // input: 32-byte digest (pre-hashed);        output: 65-byte r‖s‖v (recoverable); input is not hashed (to support keccak)
+  ECDSA_SECP256K1 = 1;   // input: 32-byte raw message (not hashed);  output: 64-byte r‖s low-S signature with input hashed by sha256
+  ED25519         = 2;   // input: message (not hashed);              output: 64-byte signature with input hashed by sha256
+  ECDSA_SECP256K1ETH = 3;   // input: 32-byte digest (pre-hashed);    output: 65-byte r‖s‖v (recoverable); input is not hashed (to support keccak)
 }
 
 message Payload {
