@@ -9,17 +9,18 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/kms/config"
-	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
 // fakeSecpKMS is an in-process stand-in for AWS KMS backed by a real secp256k1
-// key. GetPublicKey returns the X.509 SPKI; Sign mirrors KMS ECDSA_SHA_256 +
-// MessageType=DIGEST, signing the supplied digest and returning DER (r,s).
+// key. GetPublicKey returns the X.509 SPKI; Sign mirrors KMS ECDSA_SHA_256 for
+// both message types (RAW: SHA-256 the message, DIGEST: sign as-is) and returns
+// DER (r,s).
 type fakeSecpKMS struct {
 	priv    *secp256k1.PrivateKey
 	signErr error
@@ -41,24 +42,52 @@ func (f *fakeSecpKMS) Sign(_ context.Context, in *kms.SignInput, _ ...func(*kms.
 	if f.signErr != nil {
 		return nil, f.signErr
 	}
-	if in.MessageType != types.MessageTypeDigest {
-		return nil, errors.New("fakeSecpKMS: expected MessageType=DIGEST")
-	}
 	if in.SigningAlgorithm != types.SigningAlgorithmSpecEcdsaSha256 {
 		return nil, errors.New("fakeSecpKMS: expected ECDSA_SHA_256")
 	}
-	der := ecdsa.Sign(f.priv, in.Message).Serialize()
+	digest := in.Message
+	switch in.MessageType {
+	case types.MessageTypeRaw:
+		sum := sha256.Sum256(in.Message)
+		digest = sum[:]
+	case types.MessageTypeDigest:
+		if len(digest) != 32 {
+			return nil, errors.New("fakeSecpKMS: DIGEST message must be 32 bytes")
+		}
+	default:
+		return nil, errors.New("fakeSecpKMS: unexpected message type")
+	}
+	der := ecdsa.Sign(f.priv, digest).Serialize()
 	return &kms.SignOutput{Signature: der}, nil
 }
 
-func TestGRPCSecp256k1SignerRoundtrip(t *testing.T) {
+// TestSecp256k1ConsensusRoundtrip exercises the comet consensus algo: RAW
+// message (KMS hashes with SHA-256), 64-byte r‖s low-S output that cometbft's
+// secp256k1 pubkey verifies.
+func TestSecp256k1ConsensusRoundtrip(t *testing.T) {
 	f := newFakeSecpKMS(t)
-	be, err := open(context.Background(), f, "alias/eth", algos[config.AlgoSecp256k1])
-	require.NoError(t, err)
-	s, err := OpenSignerFromBackend(be, config.AlgoSecp256k1)
+	s, err := open(context.Background(), f, "alias/validator", algos[config.AlgoSecp256k1])
 	require.NoError(t, err)
 
-	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, s.Scheme())
+	require.Equal(t, config.AlgoSecp256k1, s.Scheme())
+	require.Equal(t, f.priv.PubKey().SerializeCompressed(), s.PubKey())
+
+	msg := []byte("canonical consensus sign-bytes")
+	sig, err := s.Sign(context.Background(), msg)
+	require.NoError(t, err)
+	require.Len(t, sig, 64)
+	require.True(t, cometsecp.PubKey(s.PubKey()).VerifySignature(msg, sig),
+		"cometbft secp256k1 pubkey must verify the consensus signature")
+}
+
+// TestSecp256k1EthRoundtrip exercises the Ethereum algo: pre-hashed 32-byte
+// digest in, 65-byte r‖s‖v recoverable signature out.
+func TestSecp256k1EthRoundtrip(t *testing.T) {
+	f := newFakeSecpKMS(t)
+	s, err := open(context.Background(), f, "alias/eth", algos[config.AlgoSecp256k1Eth])
+	require.NoError(t, err)
+
+	require.Equal(t, config.AlgoSecp256k1Eth, s.Scheme())
 	require.Equal(t, f.priv.PubKey().SerializeCompressed(), s.PubKey())
 
 	digest := sha256.Sum256([]byte("ethereum tx hash stand-in"))
@@ -76,11 +105,9 @@ func TestGRPCSecp256k1SignerRoundtrip(t *testing.T) {
 	require.True(t, recovered.IsEqual(f.priv.PubKey()))
 }
 
-func TestGRPCSecp256k1SignerPropagatesSignError(t *testing.T) {
+func TestSecp256k1EthPropagatesSignError(t *testing.T) {
 	f := newFakeSecpKMS(t)
-	be, err := open(context.Background(), f, "k", algos[config.AlgoSecp256k1])
-	require.NoError(t, err)
-	s, err := OpenSignerFromBackend(be, config.AlgoSecp256k1)
+	s, err := open(context.Background(), f, "k", algos[config.AlgoSecp256k1Eth])
 	require.NoError(t, err)
 
 	f.signErr = errors.New("throttled")

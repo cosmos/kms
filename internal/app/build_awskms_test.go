@@ -40,7 +40,7 @@ func TestBuildAWSKMSKeyUnreachableErrors(t *testing.T) {
 		t.Cleanup(cleanup)
 		// The error must come from awskms.Open's GetPublicKey call (connection
 		// refused against the closed port), proving the provider was wired in. Before
-		// the wiring exists, Build instead errors with "chain has no backend", which
+		// the wiring exists, Build instead errors with "chain has no signer", which
 		// does NOT contain this substring — so this assertion is a true red->green.
 		require.ErrorContains(t, err, "get public key")
 	})

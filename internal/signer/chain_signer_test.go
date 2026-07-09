@@ -12,14 +12,16 @@ import (
 	"github.com/cometbft/cometbft/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/signer"
 )
 
-type memBackend struct{ priv crypto.PrivKey }
+type memSigner struct{ priv crypto.PrivKey }
 
-func (m memBackend) PubKey(context.Context) (crypto.PubKey, error)    { return m.priv.PubKey(), nil }
-func (m memBackend) Sign(_ context.Context, b []byte) ([]byte, error) { return m.priv.Sign(b) }
-func (m memBackend) Close() error                                     { return nil }
+func (m memSigner) PubKey() []byte                                   { return m.priv.PubKey().Bytes() }
+func (m memSigner) Scheme() config.Algorithm                         { return config.AlgoED25519 }
+func (m memSigner) Sign(_ context.Context, b []byte) ([]byte, error) { return m.priv.Sign(b) }
+func (m memSigner) Close() error                                     { return nil }
 
 const chainID = "test-chain-1"
 
@@ -27,7 +29,7 @@ func newSigner(t *testing.T) (*signer.ChainSigner, crypto.PubKey, string) {
 	t.Helper()
 	priv := ed25519.GenPrivKey()
 	state := filepath.Join(t.TempDir(), "state.json")
-	cs, err := signer.NewChainSigner(chainID, memBackend{priv: priv}, state)
+	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state)
 	require.NoError(t, err)
 	return cs, priv.PubKey(), state
 }
@@ -54,11 +56,11 @@ func TestStatePersistsAcrossReload(t *testing.T) {
 	priv := ed25519.GenPrivKey()
 	state := filepath.Join(t.TempDir(), "state.json")
 
-	cs1, err := signer.NewChainSigner(chainID, memBackend{priv: priv}, state)
+	cs1, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state)
 	require.NoError(t, err)
 	require.NoError(t, cs1.SignVote(chainID, precommit(100, 0)))
 
-	cs2, err := signer.NewChainSigner(chainID, memBackend{priv: priv}, state)
+	cs2, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state)
 	require.NoError(t, err)
 	require.Error(t, cs2.SignVote(chainID, precommit(50, 0)))
 
@@ -117,7 +119,7 @@ func TestStateSaveFailureReturnsErrorNotPanic(t *testing.T) {
 	dir := t.TempDir()
 	statePath := filepath.Join(dir, "state.json")
 
-	cs, err := signer.NewChainSigner(chainID, memBackend{priv: priv}, statePath)
+	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, statePath)
 	require.NoError(t, err)
 
 	// Sabotage persistence: remove any state file and create a DIRECTORY at the

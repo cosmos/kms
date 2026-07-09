@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/kms/config"
-	pb "github.com/cosmos/kms/gen/signerservice"
 )
 
 func endpoint() string {
@@ -70,24 +69,13 @@ func TestLocalStackSignRoundtrip(t *testing.T) {
 	s, err := open(ctx, client, keyID, algos[config.AlgoED25519])
 	require.NoError(t, err)
 
-	pub, err := s.PubKey(ctx)
-	require.NoError(t, err)
+	require.Equal(t, config.AlgoED25519, s.Scheme())
+	pub := s.PubKey()
+	require.Len(t, pub, ed25519.PublicKeySize)
 
 	msg := []byte("localstack consensus sign-bytes")
 	sig, err := s.Sign(ctx, msg)
 	require.NoError(t, err)
-	require.True(t, pub.VerifySignature(msg, sig))
-
-	// Same key through the gRPC SignerService adapter: 32-byte pubkey, ED25519
-	// scheme, 64-byte signature that the pubkey verifies.
-	gs := &Signer{be: s}
-	require.Equal(t, pb.SignatureScheme_ED25519, gs.Scheme())
-	gpub := gs.PubKey()
-	require.Len(t, gpub, ed25519.PublicKeySize)
-
-	gmsg := []byte("localstack signerservice payload")
-	gsig, err := gs.Sign(ctx, gmsg)
-	require.NoError(t, err)
-	require.Len(t, gsig, ed25519.SignatureSize)
-	require.True(t, ed25519.Verify(ed25519.PublicKey(gpub), gmsg, gsig))
+	require.Len(t, sig, ed25519.SignatureSize)
+	require.True(t, ed25519.Verify(ed25519.PublicKey(pub), msg, sig))
 }

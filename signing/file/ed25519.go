@@ -7,36 +7,67 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/cometbft/cometbft/crypto"
-	"github.com/cometbft/cometbft/crypto/ed25519"
+	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
+	"github.com/cosmos/kms/config"
+	"github.com/cosmos/kms/signing"
+	"github.com/oasisprotocol/curve25519-voi/primitives/ed25519"
 )
 
-// Backend is a file-backed Ed25519 key held in memory.
-type Backend struct {
+// Ed25519Signer is a file-backed Ed25519 key held in memory.
+type Ed25519Signer struct {
 	priv crypto.PrivKey
 	pub  crypto.PubKey
 }
 
+var _ signing.Signer = (*Ed25519Signer)(nil)
+
 // LoadEd25519 reads a key file. It accepts either a CometBFT priv_validator_key.json
 // (typed JSON with a "priv_key" field) or a file containing the base64-encoded
 // 64-byte Ed25519 private key.
-func LoadEd25519(path string) (*Backend, error) {
+func LoadEd25519(path string) (*Ed25519Signer, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("file: read key file %q: %w", path, err)
 	}
 
-	priv, err := parseKey(raw)
+	priv, err := parseEddsaKey(raw)
 	if err != nil {
 		return nil, fmt.Errorf("file: parse key file %q: %w", path, err)
 	}
-	return &Backend{priv: priv, pub: priv.PubKey()}, nil
+
+	return &Ed25519Signer{priv: priv, pub: priv.PubKey()}, nil
 }
 
-func parseKey(raw []byte) (crypto.PrivKey, error) {
+func NewEd25519(privateKey []byte) (*Ed25519Signer, error) {
+	if len(privateKey) != ed25519.PrivateKeySize {
+		return nil, fmt.Errorf("ed25519: expected 64-byte key, got %d", len(privateKey))
+	}
+
+	pk := cometed25519.PrivKey(privateKey)
+
+	return &Ed25519Signer{
+		priv: pk,
+		pub:  pk.PubKey(),
+	}, nil
+}
+
+func GenerateEd25519(rand io.Reader) (*Ed25519Signer, error) {
+	_, pk, err := ed25519.GenerateKey(rand)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEd25519(pk)
+}
+
+func parseEddsaKey(raw []byte) (crypto.PrivKey, error) {
+	const size = ed25519.PrivateKeySize
+
 	// Try priv_validator_key.json shape first (both concrete and interface-typed variants).
 	if bytes.Contains(raw, []byte("priv_key")) {
 		// Try interface-typed JSON first ({"type":"...","value":"..."} envelope).
@@ -46,34 +77,40 @@ func parseKey(raw []byte) (crypto.PrivKey, error) {
 		if err := cmtjson.Unmarshal(raw, &kfIface); err == nil && kfIface.PrivKey != nil {
 			return kfIface.PrivKey, nil
 		}
+
 		// Try concrete ed25519 JSON (plain base64 string value).
 		var kfConcrete struct {
-			PrivKey ed25519.PrivKey `json:"priv_key"`
+			PrivKey cometed25519.PrivKey `json:"priv_key"`
 		}
-		if err := cmtjson.Unmarshal(raw, &kfConcrete); err == nil && len(kfConcrete.PrivKey) == ed25519.PrivateKeySize {
+		if err := cmtjson.Unmarshal(raw, &kfConcrete); err == nil && len(kfConcrete.PrivKey) == size {
 			return kfConcrete.PrivKey, nil
 		}
 	}
+
 	// Fall back to base64 raw 64-byte ed25519 key.
 	dec, err := base64.StdEncoding.DecodeString(string(bytes.TrimSpace(raw)))
 	if err != nil {
 		return nil, fmt.Errorf("not priv_validator_key.json and not base64: %w", err)
 	}
-	if len(dec) != ed25519.PrivateKeySize {
-		return nil, fmt.Errorf("expected %d-byte ed25519 key, got %d", ed25519.PrivateKeySize, len(dec))
+	if len(dec) != size {
+		return nil, fmt.Errorf("expected %d-byte ed25519 key, got %d", size, len(dec))
 	}
-	return ed25519.PrivKey(dec), nil
+
+	return cometed25519.PrivKey(dec), nil
 }
 
+// Scheme reports the config.Algorithm.
+func (s *Ed25519Signer) Scheme() config.Algorithm { return config.AlgoED25519 }
+
 // PubKey returns the public key.
-func (s *Backend) PubKey(context.Context) (crypto.PubKey, error) { return s.pub, nil }
+func (s *Ed25519Signer) PubKey() []byte { return s.pub.Bytes() }
 
 // Sign signs signBytes with the in-memory private key.
-func (s *Backend) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
+func (s *Ed25519Signer) Sign(_ context.Context, signBytes []byte) ([]byte, error) {
 	return s.priv.Sign(signBytes)
 }
 
 // Close is a no-op for file based signers.
-func (s *Backend) Close() error {
+func (s *Ed25519Signer) Close() error {
 	return nil
 }

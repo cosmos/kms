@@ -4,97 +4,91 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/service/kms/types"
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 
 	"github.com/cosmos/kms/config"
-	pb "github.com/cosmos/kms/gen/signerservice"
 	"github.com/cosmos/kms/signing"
-	"github.com/cosmos/kms/signing/ecdsasig"
 )
 
 // Signer adapts an AWS KMS key to the gRPC SignerService signing.Signer
 // interface. The private key never leaves KMS; signing is performed by the KMS
 // Sign API.
 type Signer struct {
-	be      *Backend
-	scheme  pb.SignatureScheme
-	msgType types.MessageType // RAW: KMS hashes/signs the payload; DIGEST: payload is pre-hashed
-	// finalize converts the raw KMS signature into the scheme's wire form; it
-	// receives the payload and public key because recoverable ECDSA needs both.
-	finalize func(raw, payload, pub []byte) ([]byte, error)
+	client kmsAPI
+	keyID  string
+	pub    []byte // canonical public key bytes for the algorithm's scheme
+	algo   keyAlgo
 }
 
 // The adapter must satisfy the SignerService signer contract.
 var _ signing.Signer = (*Signer)(nil)
 
-// OpenSigner resolves AWS configuration, builds a KMS client, fetches and
-// caches the key's public key. It performs one KMS GetPublicKey call and any
-// failure is returned (fatal at startup).
-func OpenSigner(ctx context.Context, cfg Config) (signing.Signer, error) {
-	be, err := Open(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("opening backend: %w", err)
+// Open resolves AWS configuration, builds a KMS client, fetches and caches the
+// key's public key, and validates its spec against the configured algorithm.
+// It performs one KMS GetPublicKey call; any failure is returned (fatal at
+// startup).
+func Open(ctx context.Context, cfg Config) (signing.Signer, error) {
+	algo, ok := algos[cfg.Algorithm]
+	if !ok {
+		return nil, fmt.Errorf("awskms: unknown algorithm %s", string(cfg.Algorithm))
 	}
-	return OpenSignerFromBackend(be, be.algo.name)
-}
 
-// OpenSignerFromBackend resolves a new aws kms signer from an existing aws kms
-// Backend. Ed25519 serves the ED25519 scheme (raw message signing); secp256k1
-// serves the ECDSA_SECP256K1 (Ethereum) scheme, signing 32-byte digests and
-// returning 65-byte r‖s‖v recoverable signatures.
-func OpenSignerFromBackend(backend *Backend, algo config.Algorithm) (signing.Signer, error) {
-	switch algo {
-	case config.AlgoED25519:
-		return &Signer{
-			be:       backend,
-			scheme:   pb.SignatureScheme_ED25519,
-			msgType:  types.MessageTypeRaw,
-			finalize: func(raw, _, _ []byte) ([]byte, error) { return raw, nil },
-		}, nil
-	case config.AlgoSecp256k1:
-		return &Signer{
-			be:       backend,
-			scheme:   pb.SignatureScheme_ECDSA_SECP256K1,
-			msgType:  types.MessageTypeDigest,
-			finalize: recoverableSig,
-		}, nil
-	default:
-		return nil, fmt.Errorf("unsupported algorithm %s", string(algo))
+	var loadOpts []func(*awsconfig.LoadOptions) error
+	if cfg.Region != "" {
+		loadOpts = append(loadOpts, awsconfig.WithRegion(cfg.Region))
 	}
+	if cfg.Profile != "" {
+		loadOpts = append(loadOpts, awsconfig.WithSharedConfigProfile(cfg.Profile))
+	}
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, loadOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("awskms: load AWS config: %w", err)
+	}
+	client := kms.NewFromConfig(awsCfg, func(o *kms.Options) {
+		if cfg.Endpoint != "" {
+			o.BaseEndpoint = aws.String(cfg.Endpoint)
+		}
+	})
+	out, err := client.GetPublicKey(ctx, &kms.GetPublicKeyInput{KeyId: aws.String(cfg.KeyID)})
+	if err != nil {
+		return nil, fmt.Errorf("awskms: get public key for %q: %w", cfg.KeyID, err)
+	}
+	if out.KeySpec != algo.keySpec {
+		return nil, fmt.Errorf("awskms: key %q has spec %q, expected %q for algorithm %q",
+			cfg.KeyID, out.KeySpec, algo.keySpec, algo.name)
+	}
+	pub, err := algo.decodePub(out.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("awskms: decode public key for %q: %w", cfg.KeyID, err)
+	}
+	return &Signer{client: client, keyID: cfg.KeyID, pub: pub, algo: algo}, nil
 }
 
 // PubKey returns the public key in the scheme's canonical encoding.
-func (s *Signer) PubKey() []byte { return s.be.pub }
+func (s *Signer) PubKey() []byte { return s.pub }
 
 // Scheme reports the signers signature scheme.
-func (s *Signer) Scheme() pb.SignatureScheme { return s.scheme }
+func (s *Signer) Scheme() config.Algorithm { return s.algo.name }
 
 // Sign signs the payload via the KMS Sign API using the scheme's message type
 // and returns the signature in the scheme's wire form.
+// In cases where the MessageType is Raw, the payload has not been hashed.
 func (s *Signer) Sign(ctx context.Context, payload []byte) ([]byte, error) {
-	// DIGEST-mode schemes sign a pre-hashed 32-byte payload as-is.
-	if s.msgType == types.MessageTypeDigest && len(payload) != 32 {
-		return nil, fmt.Errorf("awskms: %s digest must be 32 bytes, got %d", string(s.be.algo.name), len(payload))
-	}
-	out, err := s.be.sign(ctx, payload, s.msgType)
+	out, err := s.client.Sign(ctx, &kms.SignInput{
+		KeyId:            aws.String(s.keyID),
+		Message:          payload,
+		MessageType:      s.algo.msgType,
+		SigningAlgorithm: s.algo.signAlgo,
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("awskms: Sign with %q: %w", s.keyID, err)
 	}
-	return s.finalize(out, payload, s.be.pub)
+	return s.algo.fixSig(out.Signature, payload, s.pub)
 }
 
-// recoverableSig converts the DER (r,s) signature KMS returned over digest
-// into the 65-byte r‖s‖v recoverable form the ECDSA_SECP256K1 scheme requires.
-func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
-	dpub, err := secp256k1.ParsePubKey(pub)
-	if err != nil {
-		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
-	}
-	return ecdsasig.RecoverableSig(raw, digest, dpub)
-}
-
-// Close closes the backend for the aws kms based signer.
+// Close is a no-op for awskms signers.
 func (s *Signer) Close() error {
-	return s.be.Close()
+	return nil
 }

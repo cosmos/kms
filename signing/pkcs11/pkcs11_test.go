@@ -23,14 +23,12 @@ func TestOpenPubKeySignVerify(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 
-	pub, err := s.PubKey(context.Background())
-	require.NoError(t, err)
-	require.True(t, pub.Equals(want), "backend pubkey must match the on-token key")
+	require.Equal(t, want.Bytes(), s.PubKey(), "signer pubkey must match the on-token key")
 
 	msg := []byte("canonical-consensus-sign-bytes")
 	sig, err := s.Sign(context.Background(), msg)
 	require.NoError(t, err)
-	require.True(t, pub.VerifySignature(msg, sig), "signature must verify under the on-token pubkey")
+	require.True(t, want.VerifySignature(msg, sig), "signature must verify under the on-token pubkey")
 }
 
 func TestOpenByKeyID(t *testing.T) {
@@ -46,9 +44,7 @@ func TestOpenByKeyID(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 
-	pub, err := s.PubKey(context.Background())
-	require.NoError(t, err)
-	require.True(t, pub.Equals(want))
+	require.Equal(t, want.Bytes(), s.PubKey())
 }
 
 func TestOpenWrongPIN(t *testing.T) {

@@ -1,13 +1,11 @@
 package pkcs11
 
 import (
+	"crypto/ed25519"
 	"fmt"
 
 	"github.com/cosmos/kms/config"
 	"github.com/miekg/pkcs11"
-
-	"github.com/cometbft/cometbft/crypto"
-	"github.com/cometbft/cometbft/crypto/ed25519"
 )
 
 // ckmEDDSA is the standard PKCS#11 v3.0 EdDSA signing mechanism. miekg/pkcs11
@@ -24,7 +22,7 @@ const ckmEDDSA = 0x00001057
 type keyAlgo struct {
 	name      config.Algorithm
 	mechanism func() []*pkcs11.Mechanism
-	decodePub func(ckaECPoint []byte) (crypto.PubKey, error)
+	decodePub func(ckaECPoint []byte) ([]byte, error)
 	fixSig    func(raw []byte) ([]byte, error)
 }
 
@@ -39,19 +37,17 @@ var algos = map[config.Algorithm]keyAlgo{
 	},
 }
 
-// decodeEd25519Pub turns a CKA_EC_POINT value into an ed25519 crypto.PubKey.
+// decodeEd25519Pub turns a CKA_EC_POINT value into aa byte array.
 // PKCS#11 v3.0 encodes the point as a DER OCTET STRING wrapping the 32-byte key
 // (0x04 0x20 <32 bytes>); some tokens return the raw 32 bytes. Both are accepted.
-func decodeEd25519Pub(ckaECPoint []byte) (crypto.PubKey, error) {
+func decodeEd25519Pub(ckaECPoint []byte) ([]byte, error) {
 	raw := ckaECPoint
 	// DER OCTET STRING (tag 0x04) of length 0x20 (32) wrapping the key.
-	if len(ckaECPoint) == ed25519.PubKeySize+2 && ckaECPoint[0] == 0x04 && ckaECPoint[1] == ed25519.PubKeySize {
+	if len(ckaECPoint) == ed25519.PublicKeySize+2 && ckaECPoint[0] == 0x04 && ckaECPoint[1] == ed25519.PublicKeySize {
 		raw = ckaECPoint[2:]
 	}
-	if len(raw) != ed25519.PubKeySize {
-		return nil, fmt.Errorf("ed25519 CKA_EC_POINT: expected %d-byte key, got %d bytes", ed25519.PubKeySize, len(raw))
+	if len(raw) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("ed25519 CKA_EC_POINT: expected %d-byte key, got %d bytes", ed25519.PublicKeySize, len(raw))
 	}
-	pub := make(ed25519.PubKey, ed25519.PubKeySize)
-	copy(pub, raw)
-	return pub, nil
+	return raw, nil
 }

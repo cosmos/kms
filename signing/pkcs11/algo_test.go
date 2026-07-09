@@ -15,7 +15,7 @@ func TestEd25519DecodePub_DERWrapped(t *testing.T) {
 
 	pub, err := algos["ed25519"].decodePub(der)
 	require.NoError(t, err)
-	require.True(t, pub.Equals(priv.PubKey()))
+	require.Equal(t, priv.PubKey().Bytes(), pub)
 }
 
 func TestEd25519DecodePub_Raw(t *testing.T) {
@@ -24,7 +24,7 @@ func TestEd25519DecodePub_Raw(t *testing.T) {
 
 	pub, err := algos["ed25519"].decodePub(raw)
 	require.NoError(t, err)
-	require.True(t, pub.Equals(priv.PubKey()))
+	require.Equal(t, priv.PubKey().Bytes(), pub)
 }
 
 func TestEd25519DecodePub_BadLength(t *testing.T) {

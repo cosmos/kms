@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/cosmos/kms/config"
 	pb "github.com/cosmos/kms/gen/signerservice"
 	"github.com/cosmos/kms/signing"
 )
@@ -36,13 +37,27 @@ func (s *Server) lookupKey(keyID string) (signing.Key, error) {
 }
 
 func keyMessage(k signing.Key) *pb.Key {
-	return &pb.Key{Id: k.ID, Pubkey: k.Signer.PubKey(), Scheme: k.Signer.Scheme()}
+	return &pb.Key{Id: k.ID, Pubkey: k.Signer.PubKey(), Scheme: algoToScheme(k.Signer.Scheme())}
+}
+
+// algoToScheme translates config Algorithm to pb SignatureScheme types
+func algoToScheme(algo config.Algorithm) pb.SignatureScheme {
+	switch algo {
+	case config.AlgoED25519:
+		return pb.SignatureScheme_ED25519
+	case config.AlgoSecp256k1:
+		return pb.SignatureScheme_ECDSA_SECP256K1
+	case config.AlgoSecp256k1Eth:
+		return pb.SignatureScheme_ECDSA_SECP256K1ETH
+	default:
+		return pb.SignatureScheme_UNKNOWN
+	}
 }
 
 // Sign implements SignerService.Sign. The request carries no scheme; the
 // payload is interpreted per the key's own scheme (see the SignatureScheme enum
 // in the proto).
-func (s *Server) Sign(_ context.Context, req *pb.SignRequest) (*pb.SignResponse, error) {
+func (s *Server) Sign(ctx context.Context, req *pb.SignRequest) (*pb.SignResponse, error) {
 	k, err := s.lookupKey(req.KeyId)
 	if err != nil {
 		return nil, err
@@ -50,10 +65,10 @@ func (s *Server) Sign(_ context.Context, req *pb.SignRequest) (*pb.SignResponse,
 	payload := req.Payload.GetGeneric()
 	// ECDSA_SECP256K1 signs a digest, not a message: enforce the 32-byte length
 	// at the trust boundary so a malformed digest can't be signed.
-	if k.Signer.Scheme() == pb.SignatureScheme_ECDSA_SECP256K1 && len(payload) != 32 {
-		return nil, status.Error(codes.InvalidArgument, "ECDSA_SECP256K1 payload must be a 32-byte digest")
+	if k.Signer.Scheme() == config.AlgoSecp256k1Eth && len(payload) != 32 {
+		return nil, status.Error(codes.InvalidArgument, "ECDSA_SECP256K1ETH payload must be a 32-byte digest")
 	}
-	sig, err := k.Signer.Sign(context.TODO(), payload)
+	sig, err := k.Signer.Sign(ctx, payload)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "sign: %v", err)
 	}

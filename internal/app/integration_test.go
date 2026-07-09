@@ -20,6 +20,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/manager"
 	"github.com/cosmos/kms/internal/signer"
 	"github.com/cosmos/kms/internal/transport"
@@ -27,20 +28,21 @@ import (
 	"github.com/cosmos/kms/signing/file"
 )
 
-// failingBackend is a signing.Backend that is reachable and exposes a real public
+// failingSigner is a signing.Signer that is reachable and exposes a real public
 // key, but whose Sign always returns a fixed error. It simulates a signing
 // backend (HSM, cloud KMS, ...) that is connected yet rejects the signing
 // operation itself — as opposed to a network/connection failure.
-type failingBackend struct {
+type failingSigner struct {
 	pub crypto.PubKey
 	err error
 }
 
-var _ signing.Backend = failingBackend{}
+var _ signing.Signer = failingSigner{}
 
-func (b failingBackend) PubKey(context.Context) (crypto.PubKey, error) { return b.pub, nil }
-func (b failingBackend) Sign(context.Context, []byte) ([]byte, error)  { return nil, b.err }
-func (b failingBackend) Close() error                                  { return nil }
+func (b failingSigner) PubKey() []byte                               { return b.pub.Bytes() }
+func (b failingSigner) Scheme() config.Algorithm                     { return config.AlgoED25519 }
+func (b failingSigner) Sign(context.Context, []byte) ([]byte, error) { return nil, b.err }
+func (b failingSigner) Close() error                                 { return nil }
 
 // writeKey writes a file-backend key file and returns its path.
 func writeKey(t *testing.T, dir string) string {
@@ -69,9 +71,9 @@ func TestEndToEndSigning(t *testing.T) {
 	logger := log.TestingLogger()
 
 	// kms (signer) side.
-	be, err := file.LoadEd25519(writeKey(t, dir))
+	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
 
 	// validator (listener) side.
@@ -129,8 +131,8 @@ func TestSigningBackendErrorReturnsEmbeddedError(t *testing.T) {
 	// kms (signer) side: a backend that is reachable (real pubkey) but whose
 	// Sign always fails.
 	wantErr := errors.New("backend signing unavailable")
-	be := failingBackend{pub: ed25519.GenPrivKey().PubKey(), err: wantErr}
-	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
+	fs := failingSigner{pub: ed25519.GenPrivKey().PubKey(), err: wantErr}
+	cs, err := signer.NewChainSigner(chainID, fs, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
 
 	// validator (listener) side.
@@ -204,9 +206,9 @@ func TestEndToEndSigningNoise(t *testing.T) {
 	require.NoError(t, err)
 
 	// KMS signer (file backend + ChainSigner).
-	be, err := file.LoadEd25519(writeKey(t, dir))
+	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
 
 	// Validator side: a Noise listener (node-key identity, allowlisting the KMS
@@ -254,9 +256,9 @@ func TestReconnectAfterListenerRestart(t *testing.T) {
 	dir := t.TempDir()
 	logger := log.TestingLogger()
 
-	be, err := file.LoadEd25519(writeKey(t, dir))
+	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -305,9 +307,9 @@ func TestReconnectDisabledStopsAfterDrop(t *testing.T) {
 	dir := t.TempDir()
 	logger := log.TestingLogger()
 
-	be, err := file.LoadEd25519(writeKey(t, dir))
+	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, be, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
 	require.NoError(t, err)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

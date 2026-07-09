@@ -4,52 +4,71 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 
-	pb "github.com/cosmos/kms/gen/signerservice"
+	"github.com/cosmos/kms/config"
+	"github.com/cosmos/kms/signing"
 )
 
-// Secp256k1Signer is an in-memory, file-backed secp256k1 key that produces
+// Secp256k1EthSigner is an in-memory, file-backed secp256k1 key that produces
 // recoverable ECDSA signatures.
 // NOT for production custody: the private key is held in process memory.
-type Secp256k1Signer struct {
+type Secp256k1EthSigner struct {
 	priv *secp256k1.PrivateKey
 	pub  *secp256k1.PublicKey
 }
 
-func LoadSecp256k1FromString(str string) (*Secp256k1Signer, error) {
-	hexKey := strings.TrimPrefix(strings.TrimSpace(str), "0x")
-	keyBytes, err := hex.DecodeString(hexKey)
-	if err != nil {
-		return nil, fmt.Errorf("file: secp256k1 key string %q is not hex: %w", str, err)
-	}
-	if len(keyBytes) != 32 {
-		return nil, fmt.Errorf("file: secp256k1 key string %q: expected 32-byte key, got %d", str, len(keyBytes))
-	}
-	priv := secp256k1.PrivKeyFromBytes(keyBytes)
-	return &Secp256k1Signer{priv: priv, pub: priv.PubKey()}, nil
-}
+var _ signing.Signer = (*Secp256k1EthSigner)(nil)
 
-// LoadSecp256k1FromFile reads a file containing the hex-encoded 32-byte secp256k1
-// private key.
-func LoadSecp256k1(path string) (*Secp256k1Signer, error) {
+// LoadSecp256k1EthFromFile reads a file containing the hex-encoded
+// 32-byte secp256k1eth private key.
+func LoadSecp256k1Eth(path string) (*Secp256k1EthSigner, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("file: read secp256k1 key file %q: %w", path, err)
+		return nil, fmt.Errorf("file: read secp256k1eth key file %q: %w", path, err)
 	}
-	signer, err := LoadSecp256k1FromString(string(raw))
+	signer, err := LoadSecp256k1EthFromString(string(raw))
 	if err != nil {
-		return nil, fmt.Errorf("file: secp256k1 key file %q failed string decoding: %w", path, err)
+		return nil, fmt.Errorf("file: secp256k1eth key file %q failed string decoding: %w", path, err)
 	}
 	return signer, nil
 }
 
-// Scheme reports ECDSA_SECP256K1.
-func (s *Secp256k1Signer) Scheme() pb.SignatureScheme { return pb.SignatureScheme_ECDSA_SECP256K1 }
+func LoadSecp256k1EthFromString(str string) (*Secp256k1EthSigner, error) {
+	hexKey := strings.TrimPrefix(strings.TrimSpace(str), "0x")
+	keyBytes, err := hex.DecodeString(hexKey)
+	if err != nil {
+		return nil, fmt.Errorf("file: secp256k1eth key string %q is not hex: %w", str, err)
+	}
+
+	return NewSecp256k1Eth(keyBytes)
+}
+
+func NewSecp256k1Eth(privateKey []byte) (*Secp256k1EthSigner, error) {
+	if len(privateKey) != 32 {
+		return nil, fmt.Errorf("secp256k1: expected 32-byte key, got %d", len(privateKey))
+	}
+
+	priv := secp256k1.PrivKeyFromBytes(privateKey)
+	return &Secp256k1EthSigner{priv: priv, pub: priv.PubKey()}, nil
+}
+
+func GenerateSecp256k1Eth(rand io.Reader) (*Secp256k1EthSigner, error) {
+	pk, err := secp256k1.GeneratePrivateKeyFromRand(rand)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSecp256k1Eth(pk.Serialize())
+}
+
+// Scheme reports the config.Algorithm.
+func (s *Secp256k1EthSigner) Scheme() config.Algorithm { return config.AlgoSecp256k1Eth }
 
 // Sign signs a 32-byte digest and returns a 65-byte recoverable signature laid
 // out as r‖s‖v: r and s are 32 bytes each, v is a single 0/1 recovery-id byte.
@@ -57,9 +76,9 @@ func (s *Secp256k1Signer) Scheme() pb.SignatureScheme { return pb.SignatureSchem
 // so S is always canonical (low-S); no re-normalization is needed. This method
 // reorders the <27+recid><R><S> compact form to the r‖s‖v layout the client
 // expects and reduces the recovery code to 0/1.
-func (s *Secp256k1Signer) Sign(_ context.Context, digest []byte) ([]byte, error) {
+func (s *Secp256k1EthSigner) Sign(_ context.Context, digest []byte) ([]byte, error) {
 	if len(digest) != 32 {
-		return nil, fmt.Errorf("file: secp256k1 digest must be 32 bytes, got %d", len(digest))
+		return nil, fmt.Errorf("file: secp256k1eth digest must be 32 bytes, got %d", len(digest))
 	}
 	// isCompressedKey=false so the recovery code is 27+recid (no +4 offset).
 	compact := ecdsa.SignCompact(s.priv, digest, false)
@@ -81,15 +100,15 @@ func (s *Secp256k1Signer) Sign(_ context.Context, digest []byte) ([]byte, error)
 	return out, nil
 }
 
-// PubKey returns the 33-byte compressed secp256k1 public key (the canonical
-// SignerService encoding for secp256k1).
-func (s *Secp256k1Signer) PubKey() []byte { return s.pub.SerializeCompressed() }
+// PubKey returns the 33-byte compressed secp256k1eth public key (the canonical
+// SignerService encoding for secp256k1eth).
+func (s *Secp256k1EthSigner) PubKey() []byte { return s.pub.SerializeCompressed() }
 
 // PubKeyUncompressed returns the 65-byte uncompressed secp256k1 public key
 // (0x04 || X || Y). Used in tests for recovery comparison.
-func (s *Secp256k1Signer) PubKeyUncompressed() []byte { return s.pub.SerializeUncompressed() }
+func (s *Secp256k1EthSigner) PubKeyUncompressed() []byte { return s.pub.SerializeUncompressed() }
 
 // Close is a no-op for file based signers.
-func (s *Secp256k1Signer) Close() error {
+func (s *Secp256k1EthSigner) Close() error {
 	return nil
 }

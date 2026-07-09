@@ -6,17 +6,37 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/cosmos/kms/config"
 	"github.com/stretchr/testify/require"
 )
 
+// open builds a Signer over an injected kmsAPI, mirroring Open's
+// fetch/spec-check/decode sequence so tests can run against a fake client.
+func open(ctx context.Context, client kmsAPI, keyID string, algo keyAlgo) (*Signer, error) {
+	out, err := client.GetPublicKey(ctx, &kms.GetPublicKeyInput{KeyId: aws.String(keyID)})
+	if err != nil {
+		return nil, fmt.Errorf("awskms: get public key for %q: %w", keyID, err)
+	}
+	if out.KeySpec != algo.keySpec {
+		return nil, fmt.Errorf("awskms: key %q has spec %q, expected %q for algorithm %q",
+			keyID, out.KeySpec, algo.keySpec, algo.name)
+	}
+	pub, err := algo.decodePub(out.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("awskms: decode public key for %q: %w", keyID, err)
+	}
+	return &Signer{client: client, keyID: keyID, pub: pub, algo: algo}, nil
+}
+
 // fakeKMS is an in-process stand-in for AWS KMS backed by a real Ed25519 key. It
 // lets the public-key-parse and sign->verify path run offline, exercising
-// exactly the conversion logic in the backend.
+// exactly the conversion logic in the signer.
 type fakeKMS struct {
 	priv      ed25519.PrivateKey
 	keySpec   types.KeySpec
@@ -66,16 +86,16 @@ func TestOpenAndSignRoundtrip(t *testing.T) {
 	s, err := open(context.Background(), f, "alias/validator", algos[config.AlgoED25519])
 	require.NoError(t, err)
 
-	pub, err := s.PubKey(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, "ed25519", pub.Type())
-	require.Equal(t, []byte(f.priv.Public().(ed25519.PublicKey)), pub.Bytes())
+	require.Equal(t, config.AlgoED25519, s.Scheme())
+	pub := s.PubKey()
+	require.Len(t, pub, ed25519.PublicKeySize)
+	require.Equal(t, []byte(f.priv.Public().(ed25519.PublicKey)), pub)
 
 	msg := []byte("canonical consensus sign-bytes")
 	sig, err := s.Sign(context.Background(), msg)
 	require.NoError(t, err)
 	require.Len(t, sig, ed25519.SignatureSize)
-	require.True(t, pub.VerifySignature(msg, sig), "consensus pubkey must verify the KMS signature")
+	require.True(t, ed25519.Verify(ed25519.PublicKey(pub), msg, sig), "pubkey must verify the KMS signature")
 }
 
 func TestOpenRejectsWrongKeySpec(t *testing.T) {

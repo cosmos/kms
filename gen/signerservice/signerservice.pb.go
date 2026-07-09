@@ -24,19 +24,25 @@ const (
 type SignatureScheme int32
 
 const (
-	SignatureScheme_ECDSA_SECP256K1 SignatureScheme = 0 // input: 32-byte digest;              output: 65-byte r‖s‖v (recoverable)
-	SignatureScheme_ED25519         SignatureScheme = 1 // input: message (hashed internally); output: 64-byte signature
+	SignatureScheme_UNKNOWN            SignatureScheme = 0
+	SignatureScheme_ECDSA_SECP256K1    SignatureScheme = 1 // input: 32-byte raw message (not hashed);  output: 64-byte r‖s low-S signature with input hashed by sha256
+	SignatureScheme_ED25519            SignatureScheme = 2 // input: message (not hashed);              output: 64-byte signature with input hashed by sha256
+	SignatureScheme_ECDSA_SECP256K1ETH SignatureScheme = 3 // input: 32-byte digest (pre-hashed);    output: 65-byte r‖s‖v (recoverable); input is not hashed (to support keccak)
 )
 
 // Enum value maps for SignatureScheme.
 var (
 	SignatureScheme_name = map[int32]string{
-		0: "ECDSA_SECP256K1",
-		1: "ED25519",
+		0: "UNKNOWN",
+		1: "ECDSA_SECP256K1",
+		2: "ED25519",
+		3: "ECDSA_SECP256K1ETH",
 	}
 	SignatureScheme_value = map[string]int32{
-		"ECDSA_SECP256K1": 0,
-		"ED25519":         1,
+		"UNKNOWN":            0,
+		"ECDSA_SECP256K1":    1,
+		"ED25519":            2,
+		"ECDSA_SECP256K1ETH": 3,
 	}
 )
 
@@ -190,7 +196,7 @@ func (x *Key) GetScheme() SignatureScheme {
 	if x != nil {
 		return x.Scheme
 	}
-	return SignatureScheme_ECDSA_SECP256K1
+	return SignatureScheme_UNKNOWN
 }
 
 type GetKeyRequest struct {
@@ -480,10 +486,12 @@ const file_signerservice_signerservice_proto_rawDesc = "" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12;\n" +
 	"\apayload\x18\x02 \x01(\v2!.cosmos.kms.signerservice.PayloadR\apayload\",\n" +
 	"\fSignResponse\x12\x1c\n" +
-	"\tsignature\x18\x01 \x01(\fR\tsignature*3\n" +
-	"\x0fSignatureScheme\x12\x13\n" +
-	"\x0fECDSA_SECP256K1\x10\x00\x12\v\n" +
-	"\aED25519\x10\x012\xa9\x02\n" +
+	"\tsignature\x18\x01 \x01(\fR\tsignature*X\n" +
+	"\x0fSignatureScheme\x12\v\n" +
+	"\aUNKNOWN\x10\x00\x12\x13\n" +
+	"\x0fECDSA_SECP256K1\x10\x01\x12\v\n" +
+	"\aED25519\x10\x02\x12\x16\n" +
+	"\x12ECDSA_SECP256K1ETH\x10\x032\xa9\x02\n" +
 	"\rSignerService\x12]\n" +
 	"\x06GetKey\x12'.cosmos.kms.signerservice.GetKeyRequest\x1a(.cosmos.kms.signerservice.GetKeyResponse\"\x00\x12`\n" +
 	"\aGetKeys\x12(.cosmos.kms.signerservice.GetKeysRequest\x1a).cosmos.kms.signerservice.GetKeysResponse\"\x00\x12W\n" +

@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
@@ -13,7 +14,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 	"github.com/stretchr/testify/require"
 
-	pb "github.com/cosmos/kms/gen/signerservice"
+	"github.com/cosmos/kms/config"
 )
 
 const testHexKey = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
@@ -25,23 +26,23 @@ func writeKeyFile(t *testing.T, hexKey string) string {
 	return p
 }
 
-func TestLoadSecp256k1FromFileMatchesString(t *testing.T) {
-	fromFile, err := LoadSecp256k1(writeKeyFile(t, testHexKey))
+func TestLoadSecp256k1EthFromFileMatchesString(t *testing.T) {
+	fromFile, err := LoadSecp256k1Eth(writeKeyFile(t, testHexKey))
 	require.NoError(t, err)
-	fromStr, err := LoadSecp256k1FromString(testHexKey)
+	fromStr, err := LoadSecp256k1EthFromString(testHexKey)
 	require.NoError(t, err)
 	require.Equal(t, fromStr.PubKey(), fromFile.PubKey())
 }
 
-func TestLoadSecp256k1FromFileMissing(t *testing.T) {
-	_, err := LoadSecp256k1(filepath.Join(t.TempDir(), "nope.hex"))
+func TestLoadSecp256k1EthFromFileMissing(t *testing.T) {
+	_, err := LoadSecp256k1Eth(filepath.Join(t.TempDir(), "nope.hex"))
 	require.Error(t, err)
 }
 
 func TestSignDigestRecovers(t *testing.T) {
-	s, err := LoadSecp256k1FromString(testHexKey)
+	s, err := LoadSecp256k1EthFromString(testHexKey)
 	require.NoError(t, err)
-	require.Equal(t, pb.SignatureScheme_ECDSA_SECP256K1, s.Scheme())
+	require.Equal(t, config.AlgoSecp256k1Eth, s.Scheme())
 
 	digest := sha256.Sum256([]byte("attestation payload"))
 	out, err := s.Sign(context.TODO(), digest[:])
@@ -66,36 +67,66 @@ func TestSignDigestRecovers(t *testing.T) {
 }
 
 func TestSignRejectsBadDigestLength(t *testing.T) {
-	s, err := LoadSecp256k1FromString(testHexKey)
+	s, err := LoadSecp256k1EthFromString(testHexKey)
 	require.NoError(t, err)
 	_, err = s.Sign(context.TODO(), make([]byte, 31))
 	require.Error(t, err)
 }
 
-func TestLoadSecp256k1FromStringRejectsBadKey(t *testing.T) {
-	_, err := LoadSecp256k1FromString("not-hex")
+func TestLoadSecp256k1EthFromStringRejectsBadKey(t *testing.T) {
+	_, err := LoadSecp256k1EthFromString("not-hex")
 	require.Error(t, err)
 
 	// 31 bytes instead of 32.
-	_, err = LoadSecp256k1FromString(hex.EncodeToString(make([]byte, 31)))
+	_, err = LoadSecp256k1EthFromString(hex.EncodeToString(make([]byte, 31)))
 	require.Error(t, err)
 }
 
-func TestLoadSecp256k1Accepts0xPrefix(t *testing.T) {
+func TestLoadSecp256k1EthAccepts0xPrefix(t *testing.T) {
 	// Same key with and without the "0x" prefix (and surrounding whitespace)
 	// must yield the same pubkey.
-	plain, err := LoadSecp256k1FromString(testHexKey)
+	plain, err := LoadSecp256k1EthFromString(testHexKey)
 	require.NoError(t, err)
-	prefixed, err := LoadSecp256k1FromString("  0x" + testHexKey + "\n")
+	prefixed, err := LoadSecp256k1EthFromString("  0x" + testHexKey + "\n")
 	require.NoError(t, err)
 	require.Equal(t, plain.PubKey(), prefixed.PubKey())
 }
 
 func TestPubKeyShapes(t *testing.T) {
-	s, err := LoadSecp256k1FromString(testHexKey)
+	s, err := LoadSecp256k1EthFromString(testHexKey)
 	require.NoError(t, err)
 	require.Len(t, s.PubKey(), 33)
 	require.Len(t, s.PubKeyUncompressed(), 65)
 	require.Equal(t, byte(0x04), s.PubKeyUncompressed()[0])
 	require.IsType(t, &secp256k1.PublicKey{}, s.pub)
+}
+
+func TestGenerateSecp256k1Eth(t *testing.T) {
+	// ACT #1
+	acme, err := GenerateSecp256k1Eth(rand.Reader)
+	require.NoError(t, err)
+
+	// ASSERT #1
+	require.Equal(t, config.AlgoSecp256k1Eth, acme.Scheme())
+	require.Len(t, acme.PubKey(), 33)
+	require.NotEmpty(t, acme.PubKey())
+
+	// ACT #2
+	privBytes, err := PrivateKeyFromSigner(acme)
+	require.NoError(t, err)
+	require.Len(t, privBytes, 32)
+
+	// ACT #3
+	reloaded, err := NewSecp256k1Eth(privBytes)
+	require.NoError(t, err)
+
+	// ASSERT #2
+	require.Equal(t, acme.PubKey(), reloaded.PubKey())
+
+	// ACT #4 — round-trip through hex string (file format)
+	reloadedFromStr, err := LoadSecp256k1EthFromString(hex.EncodeToString(privBytes))
+	require.NoError(t, err)
+
+	// ASSERT #3
+	require.Equal(t, acme.PubKey(), reloadedFromStr.PubKey())
 }

@@ -30,7 +30,7 @@ import (
 // on shutdown. cleanup is non-nil even when an error is returned, so callers can
 // always defer it.
 func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup func(), err error) {
-	// Backends that hold OS/HSM resources are closed by cleanup.
+	// Signers that hold OS/HSM resources are closed by cleanup.
 	var closers []io.Closer
 	cleanup = func() {
 		for _, cl := range closers {
@@ -44,19 +44,19 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 		}
 	}()
 
-	// chainID -> backend (one backend per chain).
-	backends := map[string]signing.Backend{}
+	// chainID -> key signer (one signer per chain).
+	keySigners := map[string]signing.Signer{}
 	for _, k := range c.Keys {
-		s, berr := newPrivvalBackend(k)
+		s, berr := newPrivvalSigner(k)
 		if berr != nil {
 			return nil, cleanup, berr
 		}
 		closers = append(closers, s)
 		for _, id := range k.ChainIDs {
-			if _, dup := backends[id]; dup {
-				return nil, cleanup, fmt.Errorf("app: multiple backends bound to chain %q", id)
+			if _, dup := keySigners[id]; dup {
+				return nil, cleanup, fmt.Errorf("app: multiple signers bound to chain %q", id)
 			}
-			backends[id] = s
+			keySigners[id] = s
 		}
 	}
 
@@ -68,8 +68,8 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 
 	// chainID -> *ChainSigner.
 	signers := map[string]*signer.ChainSigner{}
-	for id, be := range backends {
-		cs, cerr := signer.NewChainSigner(id, be, stateFiles[id])
+	for id, ks := range keySigners {
+		cs, cerr := signer.NewChainSigner(id, ks, stateFiles[id])
 		if cerr != nil {
 			return nil, cleanup, cerr
 		}
@@ -81,7 +81,7 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 	for _, v := range c.Validators {
 		cs, ok := signers[v.ChainID]
 		if !ok {
-			return nil, cleanup, fmt.Errorf("app: chain %q has no backend", v.ChainID)
+			return nil, cleanup, fmt.Errorf("app: chain %q has no signer", v.ChainID)
 		}
 		idKey, lerr := identity.LoadOrGen(v.IdentityKey)
 		if lerr != nil {
@@ -111,13 +111,15 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 	return manager.New(logger, conns), cleanup, nil
 }
 
-// newPrivvalBackend constructs the signing backend for one config key. The
-// returned io.Closer is non-nil only for backends that hold OS resources
-// (pkcs11) and must be closed on shutdown.
-func newPrivvalBackend(k config.Key) (signing.Backend, error) {
+// newPrivvalSigner constructs the signer for one config key from its
+// custodian backend. The returned signer must be closed on shutdown.
+func newPrivvalSigner(k config.Key) (signing.Signer, error) {
 	switch k.Backend {
 	case config.BackendFile:
-		s, err := file.LoadEd25519(k.KeyFile)
+		s, err := file.Open(file.Config{
+			Algorithm: k.Algorithm,
+			KeyFile:   k.KeyFile,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -250,10 +252,10 @@ func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	be, algo := k.Backend, k.Algorithm
 
 	switch {
-	case be == config.BackendFile && algo == config.AlgoSecp256k1:
-		return file.LoadSecp256k1(k.KeyFile)
+	case be == config.BackendFile && algo == config.AlgoSecp256k1Eth:
+		return file.LoadSecp256k1Eth(k.KeyFile)
 	case be == config.BackendAWSKMS && (algo == config.AlgoED25519 || algo == config.AlgoSecp256k1):
-		return awskms.OpenSigner(context.Background(), awskms.Config{
+		return awskms.Open(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,
 			Region:    k.Region,
 			Profile:   k.Profile,

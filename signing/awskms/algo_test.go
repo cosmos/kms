@@ -66,7 +66,7 @@ func TestEd25519AlgoRegistered(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "ECC_NIST_EDWARDS25519", string(a.keySpec))
 	require.Equal(t, "ED25519_SHA_512", string(a.signAlgo))
-	out, err := a.fixSig([]byte{1, 2, 3})
+	out, err := a.fixSig([]byte{1, 2, 3}, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, []byte{1, 2, 3}, out) // identity for ed25519
 }
