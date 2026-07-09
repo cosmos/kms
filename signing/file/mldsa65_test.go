@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cometbft/cometbft/crypto"
+	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cometbft/cometbft/crypto/mldsa65"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/stretchr/testify/require"
@@ -52,6 +53,20 @@ func TestMLDSA65LoadPrivValidatorKeyJSON(t *testing.T) {
 	s, err := file.LoadMLDSA65(path)
 	require.NoError(t, err)
 	require.Equal(t, priv.PubKey().Bytes(), s.PubKey())
+}
+
+func TestMLDSA65LoadRejectsWrongKeyType(t *testing.T) {
+	raw, err := cmtjson.MarshalIndent(struct {
+		PrivKey crypto.PrivKey `json:"priv_key"`
+	}{PrivKey: cometed25519.GenPrivKey()}, "", "  ")
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "priv_validator_key.json")
+	require.NoError(t, os.WriteFile(path, raw, 0o600))
+
+	_, err = file.LoadMLDSA65(path)
+	require.ErrorContains(t, err, "is not mldsa65")
 }
 
 func TestMLDSA65LoadRejectsWrongSize(t *testing.T) {

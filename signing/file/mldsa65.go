@@ -50,6 +50,9 @@ func parseMLDSA65Key(raw []byte) (mldsa65.PrivKey, error) {
 			if priv, ok := kf.PrivKey.(mldsa65.PrivKey); ok {
 				return priv, nil
 			}
+			if kf.PrivKey != nil {
+				return mldsa65.PrivKey{}, fmt.Errorf("priv_validator_key.json key type %T is not mldsa65", kf.PrivKey)
+			}
 		}
 	}
 	// Fall back to base64 packed private key bytes.
