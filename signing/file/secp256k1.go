@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -24,21 +25,8 @@ type Secp256k1EthSigner struct {
 
 var _ signing.Signer = (*Secp256k1EthSigner)(nil)
 
-func LoadSecp256k1EthFromString(str string) (*Secp256k1EthSigner, error) {
-	hexKey := strings.TrimPrefix(strings.TrimSpace(str), "0x")
-	keyBytes, err := hex.DecodeString(hexKey)
-	if err != nil {
-		return nil, fmt.Errorf("file: secp256k1eth key string %q is not hex: %w", str, err)
-	}
-	if len(keyBytes) != 32 {
-		return nil, fmt.Errorf("file: secp256k1eth key string %q: expected 32-byte key, got %d", str, len(keyBytes))
-	}
-	priv := secp256k1.PrivKeyFromBytes(keyBytes)
-	return &Secp256k1EthSigner{priv: priv, pub: priv.PubKey()}, nil
-}
-
-// LoadSecp256k1EthFromFile reads a file containing the hex-encoded 32-byte secp256k1eth
-// private key.
+// LoadSecp256k1EthFromFile reads a file containing the hex-encoded
+// 32-byte secp256k1eth private key.
 func LoadSecp256k1Eth(path string) (*Secp256k1EthSigner, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -49,6 +37,34 @@ func LoadSecp256k1Eth(path string) (*Secp256k1EthSigner, error) {
 		return nil, fmt.Errorf("file: secp256k1eth key file %q failed string decoding: %w", path, err)
 	}
 	return signer, nil
+}
+
+func LoadSecp256k1EthFromString(str string) (*Secp256k1EthSigner, error) {
+	hexKey := strings.TrimPrefix(strings.TrimSpace(str), "0x")
+	keyBytes, err := hex.DecodeString(hexKey)
+	if err != nil {
+		return nil, fmt.Errorf("file: secp256k1eth key string %q is not hex: %w", str, err)
+	}
+
+	return NewSecp256k1Eth(keyBytes)
+}
+
+func NewSecp256k1Eth(privateKey []byte) (*Secp256k1EthSigner, error) {
+	if len(privateKey) != 32 {
+		return nil, fmt.Errorf("secp256k1: expected 32-byte key, got %d", len(privateKey))
+	}
+
+	priv := secp256k1.PrivKeyFromBytes(privateKey)
+	return &Secp256k1EthSigner{priv: priv, pub: priv.PubKey()}, nil
+}
+
+func GenerateSecp256k1Eth(rand io.Reader) (*Secp256k1EthSigner, error) {
+	pk, err := secp256k1.GeneratePrivateKeyFromRand(rand)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSecp256k1Eth(pk.Serialize())
 }
 
 // Scheme reports the config.Algorithm.

@@ -2,6 +2,7 @@ package file_test
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -52,4 +53,36 @@ func TestLoadPrivValidatorKeyJSON(t *testing.T) {
 func TestLoadRejectsMissingFile(t *testing.T) {
 	_, err := file.LoadEd25519(filepath.Join(t.TempDir(), "nope"))
 	require.Error(t, err)
+}
+
+func TestGenerateEd25519(t *testing.T) {
+	// ACT #1
+	acme, err := file.GenerateEd25519(rand.Reader)
+	require.NoError(t, err)
+
+	// ASSERT #1
+	require.Equal(t, config.AlgoED25519, acme.Scheme())
+	require.Len(t, acme.PubKey(), 32)
+	require.NotEmpty(t, acme.PubKey())
+
+	// ACT #2
+	privBytes, err := file.PrivateKeyFromSigner(acme)
+	require.NoError(t, err)
+	require.Len(t, privBytes, 64)
+
+	// ACT #3
+	reloaded, err := file.NewEd25519(privBytes)
+	require.NoError(t, err)
+
+	// ASSERT #2
+	require.Equal(t, acme.PubKey(), reloaded.PubKey())
+
+	// ACT #4 — round-trip through base64 file format
+	path := filepath.Join(t.TempDir(), "key.b64")
+	require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(privBytes)), 0o600))
+	reloadedFromFile, err := file.LoadEd25519(path)
+	require.NoError(t, err)
+
+	// ASSERT #3
+	require.Equal(t, acme.PubKey(), reloadedFromFile.PubKey())
 }

@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
@@ -98,4 +99,34 @@ func TestPubKeyShapes(t *testing.T) {
 	require.Len(t, s.PubKeyUncompressed(), 65)
 	require.Equal(t, byte(0x04), s.PubKeyUncompressed()[0])
 	require.IsType(t, &secp256k1.PublicKey{}, s.pub)
+}
+
+func TestGenerateSecp256k1Eth(t *testing.T) {
+	// ACT #1
+	acme, err := GenerateSecp256k1Eth(rand.Reader)
+	require.NoError(t, err)
+
+	// ASSERT #1
+	require.Equal(t, config.AlgoSecp256k1Eth, acme.Scheme())
+	require.Len(t, acme.PubKey(), 33)
+	require.NotEmpty(t, acme.PubKey())
+
+	// ACT #2
+	privBytes, err := PrivateKeyFromSigner(acme)
+	require.NoError(t, err)
+	require.Len(t, privBytes, 32)
+
+	// ACT #3
+	reloaded, err := NewSecp256k1Eth(privBytes)
+	require.NoError(t, err)
+
+	// ASSERT #2
+	require.Equal(t, acme.PubKey(), reloaded.PubKey())
+
+	// ACT #4 — round-trip through hex string (file format)
+	reloadedFromStr, err := LoadSecp256k1EthFromString(hex.EncodeToString(privBytes))
+	require.NoError(t, err)
+
+	// ASSERT #3
+	require.Equal(t, acme.PubKey(), reloadedFromStr.PubKey())
 }
