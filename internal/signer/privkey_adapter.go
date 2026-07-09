@@ -6,6 +6,7 @@ import (
 
 	"github.com/cometbft/cometbft/crypto"
 	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
+	cometmldsa "github.com/cometbft/cometbft/crypto/mldsa65"
 	cometsecp "github.com/cometbft/cometbft/crypto/secp256k1"
 
 	"github.com/cosmos/kms/config"
@@ -32,6 +33,12 @@ func newSignerPrivKey(ctx context.Context, s signing.Signer) (crypto.PrivKey, er
 		pub = cometed25519.PubKey(s.PubKey())
 	case config.AlgoSecp256k1:
 		pub = cometsecp.PubKey(s.PubKey())
+	case config.AlgoMLDSA65:
+		mpub, err := cometmldsa.NewPubKeyFromBytes(s.PubKey())
+		if err != nil {
+			return nil, fmt.Errorf("signer: mldsa65 pubkey: %w", err)
+		}
+		pub = mpub
 	default:
 		return nil, fmt.Errorf("signer: no cometbft pubkey type for algorithm %s", string(s.Scheme()))
 	}

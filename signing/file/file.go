@@ -19,6 +19,8 @@ func Open(cfg Config) (signing.Signer, error) {
 		return LoadEd25519(cfg.KeyFile)
 	case config.AlgoSecp256k1Eth:
 		return LoadSecp256k1Eth(cfg.KeyFile)
+	case config.AlgoMLDSA65:
+		return LoadMLDSA65(cfg.KeyFile)
 	default:
 		return nil, fmt.Errorf("file: unknown key type %s", cfg.Algorithm)
 	}
