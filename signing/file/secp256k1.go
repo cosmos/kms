@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	cometsecp256k1eth "github.com/cometbft/cometbft/crypto/secp256k1eth"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 
@@ -31,6 +32,13 @@ func LoadSecp256k1Eth(path string) (*Secp256k1EthSigner, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("file: read secp256k1eth key file %q: %w", path, err)
+	}
+	pk := parseFilePrivKey(raw)
+	if pk != nil {
+		if priv, ok := pk.(cometsecp256k1eth.PrivKey); ok {
+			return NewSecp256k1Eth(priv.Bytes())
+		}
+		return nil, fmt.Errorf("priv_validator_key.json key type %T is not secp256k1", pk)
 	}
 	signer, err := LoadSecp256k1EthFromString(string(raw))
 	if err != nil {

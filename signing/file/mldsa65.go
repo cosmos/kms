@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 
-	"github.com/cometbft/cometbft/crypto"
+	mldsacircl "github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/cometbft/cometbft/crypto/mldsa65"
-	cmtjson "github.com/cometbft/cometbft/libs/json"
 
 	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/signing"
@@ -23,6 +23,24 @@ type MLDSA65Signer struct {
 }
 
 var _ signing.Signer = (*MLDSA65Signer)(nil)
+
+// NewMLDSA65 initializes a new MLDSA65Signer from a bytes privkey
+func NewMLDSA65(privateKey []byte) (*MLDSA65Signer, error) {
+	priv, err := mldsa65.NewPrivKeyFromBytes(privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("file: new mldsa key from bytes returned err: %w", err)
+	}
+	return &MLDSA65Signer{priv: priv, pub: priv.PubKey().Bytes()}, nil
+}
+
+// GenerateMLDSA65 creates a new MLDSASigner from a rand reader by generating a new privkey.
+func GenerateMLDSA65(rand io.Reader) (*MLDSA65Signer, error) {
+	_, priv, err := mldsacircl.GenerateKey(rand)
+	if err != nil {
+		return nil, fmt.Errorf("file: generate key returned err: %w", err)
+	}
+	return NewMLDSA65(priv.Bytes())
+}
 
 // LoadMLDSA65 reads a key file. It accepts either a CometBFT
 // priv_validator_key.json (typed JSON with a "priv_key" field) or a file
@@ -42,18 +60,12 @@ func LoadMLDSA65(path string) (*MLDSA65Signer, error) {
 func parseMLDSA65Key(raw []byte) (mldsa65.PrivKey, error) {
 	// Try priv_validator_key.json shape first ({"type":"...","value":"..."}
 	// envelope on the interface-typed field).
-	if bytes.Contains(raw, []byte("priv_key")) {
-		var kf struct {
-			PrivKey crypto.PrivKey `json:"priv_key"`
+	pk := parseFilePrivKey(raw)
+	if pk != nil {
+		if priv, ok := pk.(mldsa65.PrivKey); ok {
+			return priv, nil
 		}
-		if err := cmtjson.Unmarshal(raw, &kf); err == nil {
-			if priv, ok := kf.PrivKey.(mldsa65.PrivKey); ok {
-				return priv, nil
-			}
-			if kf.PrivKey != nil {
-				return mldsa65.PrivKey{}, fmt.Errorf("priv_validator_key.json key type %T is not mldsa65", kf.PrivKey)
-			}
-		}
+		return mldsa65.PrivKey{}, fmt.Errorf("priv_validator_key.json key type %T is not mldsa65", pk)
 	}
 	// Fall back to base64 packed private key bytes.
 	dec, err := base64.StdEncoding.DecodeString(string(bytes.TrimSpace(raw)))
