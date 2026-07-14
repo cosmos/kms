@@ -29,7 +29,8 @@ relaying and attestation.
 | `awskms` key backend (AWS KMS, Ed25519) | **Supported** |
 | libp2p transport (Noise) | **Supported**  |
 | Account / raw-bytes / ECDSA signing | Planned |
-| ML-DSA / eth_secp256k1 key types | Planned |
+| ML-DSA-65 consensus signing (`file` backend, post-quantum) | **Supported** |
+| eth_secp256k1 key types | Planned |
 
 ---
 

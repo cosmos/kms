@@ -55,6 +55,7 @@ const (
 	AlgoED25519      Algorithm = "ed25519"
 	AlgoSecp256k1    Algorithm = "secp256k1"
 	AlgoSecp256k1Eth Algorithm = "secp256k1eth"
+	AlgoMLDSA65      Algorithm = "mldsa65"
 )
 
 // Key binds one signing key to one or more chains. Backend selects the custodian;
