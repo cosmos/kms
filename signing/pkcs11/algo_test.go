@@ -34,7 +34,7 @@ func TestEd25519DecodePub_BadLength(t *testing.T) {
 
 func TestEd25519FixSig_Identity(t *testing.T) {
 	sig := []byte("a-64-byte-ed25519-signature-placeholder-value-for-testing-only!!")
-	out, err := algos["ed25519"].fixSig(sig)
+	out, err := algos["ed25519"].fixSig(sig, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, sig, out)
 }
