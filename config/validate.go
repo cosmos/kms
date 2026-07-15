@@ -138,50 +138,58 @@ func (c *Config) validateFileKey(i int, home string) error {
 // paths against home.
 func (c *Config) validatePKCS11Key(i int, home string) error {
 	k := &c.Keys[i]
+	if err := validatePKCS11(&k.PKCS11Config, k.KeyID, k.Algorithm, home); err != nil {
+		return fmt.Errorf("config: key[%d] (pkcs11) %w", i, err)
+	}
+	return nil
+}
 
-	if k.Module == "" {
-		return fmt.Errorf("config: key[%d] (pkcs11) has empty module", i)
+// validatePKCS11 checks one pkcs11 key config (shared by consensus and gRPC
+// keys) and resolves its relative paths against home.
+func validatePKCS11(p *PKCS11Config, keyID string, algo Algorithm, home string) error {
+	if p.Module == "" {
+		return fmt.Errorf("has empty module")
 	}
 
 	// Token selector: exactly one of token_label / slot.
 	switch {
-	case k.TokenLabel != "" && k.Slot != nil:
-		return fmt.Errorf("config: key[%d] (pkcs11) sets both token_label and slot (use exactly one)", i)
-	case k.TokenLabel == "" && k.Slot == nil:
-		return fmt.Errorf("config: key[%d] (pkcs11) must set token_label or slot", i)
+	case p.TokenLabel != "" && p.Slot != nil:
+		return fmt.Errorf("sets both token_label and slot (use exactly one)")
+	case p.TokenLabel == "" && p.Slot == nil:
+		return fmt.Errorf("must set token_label or slot")
 	}
 
 	// Key selector: at least one of key_label / key_id.
-	if k.KeyLabel == "" && k.KeyID == "" {
-		return fmt.Errorf("config: key[%d] (pkcs11) must set key_label or key_id", i)
+	if p.KeyLabel == "" && keyID == "" {
+		return fmt.Errorf("must set key_label or key_id")
 	}
-	if k.KeyID != "" {
-		if _, err := hex.DecodeString(k.KeyID); err != nil {
-			return fmt.Errorf("config: key[%d] (pkcs11) key_id %q is not valid hex: %w", i, k.KeyID, err)
+	if keyID != "" {
+		if _, err := hex.DecodeString(keyID); err != nil {
+			return fmt.Errorf("key_id %q is not valid hex: %w", keyID, err)
 		}
 	}
 
 	// PIN source: exactly one of pin / pin_env / pin_file.
 	n := 0
-	for _, set := range []bool{k.PIN != "", k.PINEnv != "", k.PINFile != ""} {
+	for _, set := range []bool{p.PIN != "", p.PINEnv != "", p.PINFile != ""} {
 		if set {
 			n++
 		}
 	}
 	if n != 1 {
-		return fmt.Errorf("config: key[%d] (pkcs11) must set exactly one of pin, pin_env, pin_file (got %d)", i, n)
+		return fmt.Errorf("must set exactly one of pin, pin_env, pin_file (got %d)", n)
 	}
 
 	// Algorithm: empty defaults to ed25519; otherwise must be registered.
-	if k.Algorithm != "" && !supportedPKCS11Algorithms[k.Algorithm] {
-		return fmt.Errorf("config: key[%d] (pkcs11) has unknown algorithm %q", i, k.Algorithm)
+	if algo != "" && !supportedPKCS11Algorithms[algo] {
+		return fmt.Errorf("has unknown algorithm %q", algo)
 	}
 
 	// Resolve relative paths against home before checking the module is readable.
-	k.Module = AbsPath(home, k.Module)
-	k.PINFile = AbsPath(home, k.PINFile)
-	if _, err := os.Stat(k.Module); err != nil {
-		return fmt.Errorf("config: key[%d] (pkcs11) module %q not readable: %w", i, k.Module, err)
+	p.Module = AbsPath(home, p.Module)
+	p.PINFile = AbsPath(home, p.PINFile)
+	if _, err := os.Stat(p.Module); err != nil {
+		return fmt.Errorf("module %q not readable: %w", p.Module, err)
 	}
 	return nil
 }
@@ -246,8 +254,8 @@ func (c *Config) validateGRPC(home string) error {
 		seen[k.ID] = true
 
 		// gRPC keys carry their own (small) backend validation rather than sharing
-		// the consensus per-backend validators: only file and awskms are supported
-		// here, and a gRPC key is bound by id, not chain_ids.
+		// the consensus per-backend validators: a gRPC key is bound by id, not
+		// chain_ids.
 		switch k.Backend {
 		case BackendFile:
 			if k.KeyFile == "" {
@@ -257,6 +265,10 @@ func (c *Config) validateGRPC(home string) error {
 				return fmt.Errorf("config: grpc.key[%d].key_file %q: %w", i, k.KeyFile, err)
 			}
 			k.KeyFile = AbsPath(home, k.KeyFile)
+		case BackendPKCS11:
+			if err := validatePKCS11(&k.PKCS11Config, k.KeyID, k.Algorithm, home); err != nil {
+				return fmt.Errorf("config: grpc.key[%d] (pkcs11) %w", i, err)
+			}
 		case BackendAWSKMS:
 			if k.KeyID == "" {
 				return fmt.Errorf("config: grpc.key[%d] (awskms) requires key_id", i)

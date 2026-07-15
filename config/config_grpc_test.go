@@ -101,3 +101,35 @@ func TestValidateGRPCAWSKMSUnknownAlgorithm(t *testing.T) {
 	c.GRPC.Keys = []GRPCKey{{ID: "a1", Backend: BackendAWSKMS, KeyID: "alias/attestor", Algorithm: "rsa-9000"}}
 	require.ErrorContains(t, c.Validate(home), "algorithm")
 }
+
+func TestValidateGRPCPKCS11OK(t *testing.T) {
+	c, home := baseGRPC(t)
+	module := touch(t, home, "module.so")
+	c.GRPC.Keys = []GRPCKey{{
+		ID:        "p1",
+		Backend:   BackendPKCS11,
+		Algorithm: "secp256k1eth",
+		PKCS11Config: PKCS11Config{
+			Module:     module,
+			TokenLabel: "tok",
+			KeyLabel:   "key",
+			PIN:        "1234",
+		},
+	}}
+	require.NoError(t, c.Validate(home))
+}
+
+func TestValidateGRPCPKCS11RequiresPIN(t *testing.T) {
+	c, home := baseGRPC(t)
+	module := touch(t, home, "module.so")
+	c.GRPC.Keys = []GRPCKey{{
+		ID:      "p1",
+		Backend: BackendPKCS11,
+		PKCS11Config: PKCS11Config{
+			Module:     module,
+			TokenLabel: "tok",
+			KeyLabel:   "key",
+		},
+	}}
+	require.ErrorContains(t, c.Validate(home), "pin")
+}
