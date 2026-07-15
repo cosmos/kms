@@ -12,7 +12,6 @@ import (
 
 	"github.com/cometbft/cometbft/crypto"
 	cometed25519 "github.com/cometbft/cometbft/crypto/ed25519"
-	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/signing"
 	"github.com/oasisprotocol/curve25519-voi/primitives/ed25519"
@@ -69,22 +68,12 @@ func parseEddsaKey(raw []byte) (crypto.PrivKey, error) {
 	const size = ed25519.PrivateKeySize
 
 	// Try priv_validator_key.json shape first (both concrete and interface-typed variants).
-	if bytes.Contains(raw, []byte("priv_key")) {
-		// Try interface-typed JSON first ({"type":"...","value":"..."} envelope).
-		var kfIface struct {
-			PrivKey crypto.PrivKey `json:"priv_key"`
+	pk := parseFilePrivKey(raw)
+	if pk != nil {
+		if priv, ok := pk.(cometed25519.PrivKey); ok {
+			return priv, nil
 		}
-		if err := cmtjson.Unmarshal(raw, &kfIface); err == nil && kfIface.PrivKey != nil {
-			return kfIface.PrivKey, nil
-		}
-
-		// Try concrete ed25519 JSON (plain base64 string value).
-		var kfConcrete struct {
-			PrivKey cometed25519.PrivKey `json:"priv_key"`
-		}
-		if err := cmtjson.Unmarshal(raw, &kfConcrete); err == nil && len(kfConcrete.PrivKey) == size {
-			return kfConcrete.PrivKey, nil
-		}
+		return cometed25519.PrivKey{}, fmt.Errorf("priv_validator_key.json key type %T is not ed25519", pk)
 	}
 
 	// Fall back to base64 raw 64-byte ed25519 key.

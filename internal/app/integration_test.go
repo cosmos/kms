@@ -48,7 +48,7 @@ func (b failingSigner) Close() error                                 { return ni
 func writeKey(t *testing.T, dir string) string {
 	t.Helper()
 	raw, err := cmtjson.MarshalIndent(struct {
-		PrivKey ed25519.PrivKey `json:"priv_key"`
+		PrivKey crypto.PrivKey `json:"priv_key"`
 	}{PrivKey: ed25519.GenPrivKey()}, "", "  ")
 	require.NoError(t, err)
 	p := filepath.Join(dir, "key.json")

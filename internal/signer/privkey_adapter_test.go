@@ -6,6 +6,7 @@ import (
 
 	"github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
+	"github.com/cometbft/cometbft/crypto/mldsa65"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/kms/config"
@@ -30,6 +31,28 @@ func TestAdapterSatisfiesPrivKeyAndSigns(t *testing.T) {
 	// (var _ crypto.PrivKey = (*signerPrivKey)(nil)); here we exercise behavior.
 	require.True(t, pk.PubKey().Equals(priv.PubKey()))
 	require.Equal(t, "ed25519", pk.Type())
+
+	msg := []byte("hello")
+	sig, err := pk.Sign(msg)
+	require.NoError(t, err)
+	require.True(t, pk.PubKey().VerifySignature(msg, sig))
+}
+
+// mldsaStub reports the mldsa65 scheme.
+type mldsaStub struct{ stubSigner }
+
+func (mldsaStub) Scheme() config.Algorithm { return config.AlgoMLDSA65 }
+
+func TestAdapterMLDSA65(t *testing.T) {
+	priv, err := mldsa65.GenPrivKey()
+	require.NoError(t, err)
+	st := mldsaStub{stubSigner{priv: priv}}
+
+	pk, err := newSignerPrivKey(context.Background(), st)
+	require.NoError(t, err)
+
+	require.True(t, pk.PubKey().Equals(priv.PubKey()))
+	require.Equal(t, mldsa65.KeyType, pk.Type())
 
 	msg := []byte("hello")
 	sig, err := pk.Sign(msg)

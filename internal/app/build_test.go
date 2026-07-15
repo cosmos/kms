@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/cometbft/cometbft/libs/log"
@@ -19,7 +20,7 @@ func TestBuildWiresChainSigners(t *testing.T) {
 
 	keyPath := filepath.Join(home, "key.json")
 	raw, err := cmtjson.MarshalIndent(struct {
-		PrivKey ed25519.PrivKey `json:"priv_key"`
+		PrivKey crypto.PrivKey `json:"priv_key"`
 	}{PrivKey: ed25519.GenPrivKey()}, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(keyPath, raw, 0o600))

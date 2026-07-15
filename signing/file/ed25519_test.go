@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func TestLoadBase64AndSign(t *testing.T) {
 func TestLoadPrivValidatorKeyJSON(t *testing.T) {
 	priv := ed25519.GenPrivKey()
 	raw, err := cmtjson.MarshalIndent(struct {
-		PrivKey ed25519.PrivKey `json:"priv_key"`
+		PrivKey crypto.PrivKey `json:"priv_key"`
 	}{PrivKey: priv}, "", "  ")
 	require.NoError(t, err)
 

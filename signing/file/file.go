@@ -1,8 +1,11 @@
 package file
 
 import (
+	"bytes"
 	"fmt"
 
+	"github.com/cometbft/cometbft/crypto"
+	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/signing"
 )
@@ -19,6 +22,8 @@ func Open(cfg Config) (signing.Signer, error) {
 		return LoadEd25519(cfg.KeyFile)
 	case config.AlgoSecp256k1Eth:
 		return LoadSecp256k1Eth(cfg.KeyFile)
+	case config.AlgoMLDSA65:
+		return LoadMLDSA65(cfg.KeyFile)
 	default:
 		return nil, fmt.Errorf("file: unknown key type %s", cfg.Algorithm)
 	}
@@ -39,4 +44,21 @@ func PrivateKeyFromSigner(signer signing.Signer) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("private key export is not supported for %s", signer.Scheme())
 	}
+}
+
+// parseFilePrivKey attempts to deserialize file bytes as a CometBFT encoded PrivKey.
+// If parsing fails or otherwise errors we simply return nil.
+func parseFilePrivKey(raw []byte) crypto.PrivKey {
+	// Try priv_validator_key.json shape first ({"type":"...","value":"..."}
+	// envelope on the interface-typed field).
+	if bytes.Contains(raw, []byte("priv_key")) {
+		var kf struct {
+			PrivKey crypto.PrivKey `json:"priv_key"`
+		}
+		if err := cmtjson.Unmarshal(raw, &kf); err != nil {
+			return nil
+		}
+		return kf.PrivKey
+	}
+	return nil
 }
