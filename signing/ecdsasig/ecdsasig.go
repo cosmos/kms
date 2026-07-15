@@ -94,8 +94,6 @@ func RecoverDER(der, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
 	return recoverSig(r, s, digest, pub)
 }
 
-// func Recover
-
 // recoverSig takes r,s ModNScalar as well as the associated pubkey and
 // returns 65 byte r‖s‖v signature with low-S normalized and recover byte set
 func recoverSig(r, s secp256k1.ModNScalar, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
