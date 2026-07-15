@@ -133,3 +133,9 @@ func TestValidateGRPCPKCS11RequiresPIN(t *testing.T) {
 	}}
 	require.ErrorContains(t, c.Validate(home), "pin")
 }
+
+func TestValidateGRPCRejectsMLDSA65(t *testing.T) {
+	c, home := baseGRPC(t)
+	c.GRPC.Keys = []GRPCKey{{ID: "a1", Backend: BackendAWSKMS, KeyID: "alias/pq", Algorithm: "mldsa65"}}
+	require.ErrorContains(t, c.Validate(home), "not supported over gRPC")
+}

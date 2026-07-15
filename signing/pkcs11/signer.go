@@ -91,13 +91,13 @@ func Open(cfg Config) (s *Signer, err error) {
 	}
 
 	attrs, err := mod.GetAttributeValue(session, pubH, []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, nil),
+		pkcs11.NewAttribute(algo.pubAttr, nil),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11: read public key: %w", err)
 	}
 	if len(attrs) == 0 {
-		return nil, fmt.Errorf("pkcs11: public key has no CKA_EC_POINT")
+		return nil, fmt.Errorf("pkcs11: public key has no attribute 0x%x", algo.pubAttr)
 	}
 	pub, err := algo.decodePub(attrs[0].Value)
 	if err != nil {

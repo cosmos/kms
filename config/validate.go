@@ -10,12 +10,17 @@ import (
 // supportedPKCS11Algorithms mirrors the algo registry in signing/pkcs11. It is
 // duplicated here so config validation does not have to import the cgo-backed
 // pkcs11 package. Keep the two in sync when adding a key type.
-var supportedPKCS11Algorithms = map[Algorithm]bool{AlgoED25519: true, AlgoSecp256k1Eth: true}
+var supportedPKCS11Algorithms = map[Algorithm]bool{AlgoED25519: true, AlgoSecp256k1Eth: true, AlgoMLDSA65: true}
 
 // supportedAWSKMSAlgorithms mirrors the algo registry in signing/awskms. It is
 // duplicated here so config validation does not have to import the awskms
 // package. Keep the two in sync when adding a key type.
-var supportedAWSKMSAlgorithms = map[Algorithm]bool{AlgoED25519: true, AlgoSecp256k1: true, AlgoSecp256k1Eth: true}
+var supportedAWSKMSAlgorithms = map[Algorithm]bool{AlgoED25519: true, AlgoSecp256k1: true, AlgoSecp256k1Eth: true, AlgoMLDSA65: true}
+
+// grpcAlgorithms mirrors the SignatureScheme enum in the signerservice proto:
+// only algorithms clients can address are served over gRPC. mldsa65 has no
+// proto scheme and is privval-only.
+var grpcAlgorithms = map[Algorithm]bool{AlgoED25519: true, AlgoSecp256k1: true, AlgoSecp256k1Eth: true}
 
 // Validate resolves defaults and enforces fail-fast invariants. home is the base
 // directory used to resolve relative paths and default state files.
@@ -252,6 +257,10 @@ func (c *Config) validateGRPC(home string) error {
 			return fmt.Errorf("config: duplicate grpc.key id %q", k.ID)
 		}
 		seen[k.ID] = true
+
+		if k.Algorithm != "" && !grpcAlgorithms[k.Algorithm] {
+			return fmt.Errorf("config: grpc.key[%d] algorithm %q is not supported over gRPC", i, k.Algorithm)
+		}
 
 		// gRPC keys carry their own (small) backend validation rather than sharing
 		// the consensus per-backend validators: a gRPC key is bound by id, not

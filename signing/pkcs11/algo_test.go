@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
+	"github.com/cometbft/cometbft/crypto/mldsa65"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,4 +38,17 @@ func TestEd25519FixSig_Identity(t *testing.T) {
 	out, err := algos["ed25519"].fixSig(sig, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, sig, out)
+}
+
+func TestMLDSA65DecodePub(t *testing.T) {
+	priv, err := mldsa65.GenPrivKey()
+	require.NoError(t, err)
+	raw := priv.PubKey().Bytes() // CKA_VALUE holds the packed key, no DER wrapping
+
+	pub, err := algos["mldsa65"].decodePub(raw)
+	require.NoError(t, err)
+	require.Equal(t, raw, pub)
+
+	_, err = algos["mldsa65"].decodePub(raw[:100])
+	require.Error(t, err)
 }

@@ -3,9 +3,12 @@ package awskms
 import (
 	"crypto/ed25519"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
+	mldsa65 "github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/cosmos/kms/config"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
@@ -19,8 +22,8 @@ import (
 //     canonical public key bytes
 //   - how to normalize the signature KMS returns
 //
-// Adding a new key type (ml-dsa, ...) is a new entry in algos plus, for
-// consensus use, its cometbft pubkey mapping in internal/signer.
+// Adding a new key type is a new entry in algos plus, for consensus use, its
+// cometbft pubkey mapping in internal/signer.
 type keyAlgo struct {
 	name     config.Algorithm
 	keySpec  types.KeySpec
@@ -79,6 +82,18 @@ var algos = map[config.Algorithm]keyAlgo{
 		decodePub: decodeSecp256k1Pub,
 		fixSig:    recoverableSig,
 	},
+	// ML-DSA-65 with MessageType=RAW is pure ML-DSA over the message with an
+	// empty context string — the mode cometbft mldsa65 verification expects.
+	// KMS caps RAW messages at 4096 bytes; consensus sign-bytes are far below.
+	// The signature is the packed FIPS 204 form, so fixSig is the identity.
+	config.AlgoMLDSA65: {
+		name:      config.AlgoMLDSA65,
+		keySpec:   types.KeySpecMlDsa65,
+		msgType:   types.MessageTypeRaw,
+		signAlgo:  types.SigningAlgorithmSpecMlDsaShake256,
+		decodePub: decodeMLDSA65Pub,
+		fixSig:    func(raw, digest, pub []byte) ([]byte, error) { return raw, nil },
+	},
 }
 
 // decodeSecp256k1Pub turns the DER SubjectPublicKeyInfo returned by KMS
@@ -99,6 +114,31 @@ func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
 		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
 	}
 	return ecdsasig.RecoverDER(raw, digest, dpub)
+}
+
+// oidMLDSA65 is id-ml-dsa-65 (2.16.840.1.101.3.4.3.18), the SPKI algorithm
+// identifier for ML-DSA-65 public keys.
+var oidMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+
+// decodeMLDSA65Pub turns the DER SubjectPublicKeyInfo returned by KMS
+// GetPublicKey into the packed 1952-byte ML-DSA-65 public key.
+// crypto/x509 does not know ML-DSA, so the SPKI envelope is parsed directly.
+func decodeMLDSA65Pub(spki []byte) ([]byte, error) {
+	var parsed struct {
+		Algorithm pkix.AlgorithmIdentifier
+		PublicKey asn1.BitString
+	}
+	if _, err := asn1.Unmarshal(spki, &parsed); err != nil {
+		return nil, fmt.Errorf("parse SubjectPublicKeyInfo: %w", err)
+	}
+	if !parsed.Algorithm.Algorithm.Equal(oidMLDSA65) {
+		return nil, fmt.Errorf("expected ml-dsa-65 public key, got OID %v", parsed.Algorithm.Algorithm)
+	}
+	pub := parsed.PublicKey.RightAlign()
+	if len(pub) != mldsa65.PublicKeySize {
+		return nil, fmt.Errorf("ml-dsa-65 public key: expected %d bytes, got %d", mldsa65.PublicKeySize, len(pub))
+	}
+	return pub, nil
 }
 
 // decodeEd25519Pub turns the DER SubjectPublicKeyInfo returned by KMS
