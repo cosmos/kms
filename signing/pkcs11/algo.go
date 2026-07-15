@@ -29,7 +29,7 @@ type keyAlgo struct {
 }
 
 // algos is the registry of supported key algorithms, keyed by the config
-// "algorithm" string. Ed25519 is the only entry for now.
+// "algorithm" string.
 var algos = map[config.Algorithm]keyAlgo{
 	config.AlgoED25519: {
 		name:      config.AlgoED25519,

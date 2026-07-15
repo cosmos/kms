@@ -34,6 +34,7 @@ linters:
             - github.com/decred/dcrd/dcrec/secp256k1
             - github.com/oasisprotocol/curve25519-voi/primitives/ed25519
             - github.com/cloudflare/circl/sign/mldsa/mldsa65
+            - golang.org/x/crypto/sha3
             - google.golang.org/grpc
             - gopkg.in/yaml.v3
         test:

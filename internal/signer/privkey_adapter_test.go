@@ -2,14 +2,17 @@ package signer
 
 import (
 	"context"
+	"crypto/rand"
 	"testing"
 
 	"github.com/cometbft/cometbft/crypto"
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cometbft/cometbft/crypto/mldsa65"
+	"github.com/cometbft/cometbft/crypto/secp256k1eth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/kms/config"
+	"github.com/cosmos/kms/signing/file"
 )
 
 // stubSigner is a minimal ed25519 signing.Signer for tests.
@@ -60,13 +63,30 @@ func TestAdapterMLDSA65(t *testing.T) {
 	require.True(t, pk.PubKey().VerifySignature(msg, sig))
 }
 
-// ethStub reports the eth scheme, which has no cometbft pubkey type.
-type ethStub struct{ stubSigner }
+// TestAdapterSecp256k1Eth proves the adapter's Keccak-256 pre-hash matches what
+// cometbft secp256k1eth verification applies: a digest-signing eth signer
+// wrapped by the adapter must verify against the raw sign-bytes.
+func TestAdapterSecp256k1Eth(t *testing.T) {
+	fs, err := file.GenerateSecp256k1Eth(rand.Reader)
+	require.NoError(t, err)
 
-func (ethStub) Scheme() config.Algorithm { return config.AlgoSecp256k1Eth }
+	pk, err := newSignerPrivKey(context.Background(), fs)
+	require.NoError(t, err)
+	require.Equal(t, secp256k1eth.KeyType, pk.Type())
+
+	msg := []byte("hello")
+	sig, err := pk.Sign(msg)
+	require.NoError(t, err)
+	require.True(t, pk.PubKey().VerifySignature(msg, sig))
+}
+
+// bogusStub reports a scheme with no cometbft pubkey type.
+type bogusStub struct{ stubSigner }
+
+func (bogusStub) Scheme() config.Algorithm { return config.Algorithm("bogus") }
 
 func TestAdapterRejectsSchemeWithoutCometPubKey(t *testing.T) {
-	st := ethStub{stubSigner{priv: ed25519.GenPrivKey()}}
+	st := bogusStub{stubSigner{priv: ed25519.GenPrivKey()}}
 	_, err := newSignerPrivKey(context.Background(), st)
 	require.ErrorContains(t, err, "no cometbft pubkey type")
 }

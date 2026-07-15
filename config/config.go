@@ -155,13 +155,14 @@ type GRPCConfig struct {
 
 // GRPCKey binds a signing key to an id (the SignerService key handle clients
 // address). Backend selects the custodian and Algorithm the key type. The
-// supported combinations are file/secp256k1, awskms/ed25519, and awskms/secp256k1.
+// supported combinations are file/{ed25519,secp256k1eth} and
+// awskms/{ed25519,secp256k1,secp256k1eth}.
 // PKCS#11 is not yet supported over gRPC. The server performs no caller
 // authorization, so every configured key is usable by any connecting client.
 type GRPCKey struct {
 	ID        string    `yaml:"id"`
 	Backend   Backend   `yaml:"backend"`   // "file" | "awskms"
-	Algorithm Algorithm `yaml:"algorithm"` // file: "secp256k1"; awskms: "ed25519" | "secp256k1"
+	Algorithm Algorithm `yaml:"algorithm"` // file: "ed25519" | "secp256k1eth"; awskms: "ed25519" | "secp256k1" | "secp256k1eth"
 	KeyID     string    `yaml:"key_id"`    // awskms: KMS id, ARN, or alias/<name>
 
 	FileConfig   `yaml:",inline"`
