@@ -67,14 +67,6 @@ var algos = map[config.Algorithm]keyAlgo{
 	},
 }
 
-func recoverSig(raw, digest, pub []byte) ([]byte, error) {
-	dpub, err := secp256k1.ParsePubKey(pub)
-	if err != nil {
-		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
-	}
-	return ecdsasig.RecoverCompact(raw, digest, dpub)
-}
-
 // decodeMLDSA65Pub validates a CKA_VALUE attribute as a packed 1952-byte
 // ML-DSA-65 public key. The attribute holds the raw key with no DER wrapping.
 func decodeMLDSA65Pub(attr []byte) ([]byte, error) {
@@ -84,7 +76,15 @@ func decodeMLDSA65Pub(attr []byte) ([]byte, error) {
 	return attr, nil
 }
 
-// decodeEd25519Pub turns a CKA_EC_POINT value into aa byte array.
+func recoverSig(raw, digest, pub []byte) ([]byte, error) {
+	dpub, err := secp256k1.ParsePubKey(pub)
+	if err != nil {
+		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
+	}
+	return ecdsasig.RecoverCompact(raw, digest, dpub)
+}
+
+// decodeEd25519Pub turns a CKA_EC_POINT value into a byte array.
 // PKCS#11 v3.0 encodes the point as a DER OCTET STRING wrapping the 32-byte key
 // (0x04 0x20 <32 bytes>); some tokens return the raw 32 bytes. Both are accepted.
 func decodeEd25519Pub(ckaECPoint []byte) ([]byte, error) {
@@ -105,7 +105,7 @@ func decodeEd25519Pub(ckaECPoint []byte) ([]byte, error) {
 func decodeSecp256k1Pub(ckaECPoint []byte) ([]byte, error) {
 	raw := ckaECPoint
 	// DER OCTET STRING (0x04) of length 65 uncompressed, or 33 compressed)
-	// wrapping the SEC1 point. A bare uncompressed point also starts with x04
+	// wrapping the SEC1 point. A bare uncompressed point also starts with 0x04
 	// but is 65 bytes, never 67 or 35.
 	if wrapped := len(raw) - 2; (wrapped == 65 || wrapped == 33) && raw[0] == 0x04 && int(raw[1]) == wrapped {
 		raw = raw[2:]
