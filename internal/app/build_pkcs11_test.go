@@ -67,5 +67,5 @@ func TestNewServerWiresPKCS11Backend(t *testing.T) {
 	srv, err := app.NewServer(c, home, log.TestingLogger())
 	require.NoError(t, err)
 	require.NotNil(t, srv)
-	srv.Close()
+	t.Cleanup(srv.Close) // releases the PKCS#11 session even if assertions below fail
 }
