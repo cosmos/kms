@@ -98,7 +98,7 @@ func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
 	}
-	return ecdsasig.RecoverableSig(raw, digest, dpub)
+	return ecdsasig.RecoverDER(raw, digest, dpub)
 }
 
 // decodeEd25519Pub turns the DER SubjectPublicKeyInfo returned by KMS

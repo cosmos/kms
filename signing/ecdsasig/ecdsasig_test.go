@@ -52,12 +52,30 @@ func highSDER(t *testing.T, der []byte) []byte {
 	return out
 }
 
-func TestRecoverableSigRecoversPubKey(t *testing.T) {
+// compactSig signs digest and returns the raw 64-byte r‖s encoding, standing
+// in for what a PKCS#11 token returns from CKM_ECDSA.
+func compactSig(t *testing.T, priv *secp256k1.PrivateKey, digest []byte) []byte {
+	t.Helper()
+	return ecdsa.SignCompact(priv, digest, true)[1:]
+}
+
+// highSCompact returns the signature with s replaced by N-s, producing a
+// non-canonical high-S signature.
+func highSCompact(t *testing.T, rs []byte) []byte {
+	t.Helper()
+	var s secp256k1.ModNScalar
+	s.SetByteSlice(rs[32:])
+	s.Negate()
+	neg := s.Bytes()
+	return append(append([]byte(nil), rs[:32]...), neg[:]...)
+}
+
+func TestRecoverCompactRecoversPubKey(t *testing.T) {
 	priv := testKey(t)
 	digest := sha256.Sum256([]byte("eth digest"))
-	der := derSig(t, priv, digest[:])
+	rs := compactSig(t, priv, digest[:])
 
-	sig, err := RecoverableSig(der, digest[:], priv.PubKey())
+	sig, err := RecoverCompact(rs, digest[:], priv.PubKey())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,17 +105,17 @@ func TestRecoverableSigRecoversPubKey(t *testing.T) {
 	}
 }
 
-func TestRecoverableSigNormalizesHighS(t *testing.T) {
+func TestRecoverCompactNormalizesHighS(t *testing.T) {
 	priv := testKey(t)
 	digest := sha256.Sum256([]byte("eth digest"))
-	low := derSig(t, priv, digest[:])
-	high := highSDER(t, low)
+	low := compactSig(t, priv, digest[:])
+	high := highSCompact(t, low)
 
-	a, err := RecoverableSig(low, digest[:], priv.PubKey())
+	a, err := RecoverCompact(low, digest[:], priv.PubKey())
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := RecoverableSig(high, digest[:], priv.PubKey())
+	b, err := RecoverCompact(high, digest[:], priv.PubKey())
 	if err != nil {
 		t.Fatal(err)
 	}
