@@ -97,6 +97,9 @@ func RecoverDER(der, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
 // recoverSig takes r,s ModNScalar as well as the associated pubkey and
 // returns 65 byte r‖s‖v signature with low-S normalized and recover byte set
 func recoverSig(r, s secp256k1.ModNScalar, digest []byte, pub *secp256k1.PublicKey) ([]byte, error) {
+	if len(digest) != 32 {
+		return nil, fmt.Errorf("ecdsasig: digest must be 32 bytes, got %d", len(digest))
+	}
 	rb, sb := r.Bytes(), s.Bytes()
 
 	// decred compact form is <27+recid>‖R‖S; isCompressedKey=false ⇒ no +4.

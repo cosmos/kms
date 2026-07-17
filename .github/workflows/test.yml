@@ -37,6 +37,13 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install SoftHSM2 (PKCS#11 integration tests)
+        if: steps.filter.outputs.code == 'true' && hashFiles('go.mod') != ''
+        run: sudo apt-get update && sudo apt-get install -y softhsm2
+
       - name: Test kms (race detector)
         if: steps.filter.outputs.code == 'true' && hashFiles('go.mod') != ''
         run: make test-race
+        env:
+          # Hard-fail if SoftHSM2 is missing instead of auto-skipping the PKCS#11 tests.
+          KMS_SOFTHSM_LIB: /usr/lib/softhsm/libsofthsm2.so
