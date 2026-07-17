@@ -128,8 +128,12 @@ func decodeMLDSA65Pub(spki []byte) ([]byte, error) {
 		Algorithm pkix.AlgorithmIdentifier
 		PublicKey asn1.BitString
 	}
-	if _, err := asn1.Unmarshal(spki, &parsed); err != nil {
+	rest, err := asn1.Unmarshal(spki, &parsed)
+	if err != nil {
 		return nil, fmt.Errorf("parse SubjectPublicKeyInfo: %w", err)
+	}
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("parse SubjectPublicKeyInfo: %d trailing bytes", len(rest))
 	}
 	if !parsed.Algorithm.Algorithm.Equal(oidMLDSA65) {
 		return nil, fmt.Errorf("expected ml-dsa-65 public key, got OID %v", parsed.Algorithm.Algorithm)
