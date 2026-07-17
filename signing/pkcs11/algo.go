@@ -43,12 +43,6 @@ var algos = map[config.Algorithm]keyAlgo{
 		decodePub: decodeSecp256k1Pub,
 		fixSig:    recoverSig,
 	},
-	config.AlgoSecp256k1Eth: {
-		name:      config.AlgoSecp256k1Eth,
-		mechanism: func() []*pkcs11.Mechanism { return []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)} },
-		decodePub: decodeSecp256k1Pub,
-		fixSig:    recoverSig,
-	},
 }
 
 func recoverSig(raw, digest, pub []byte) ([]byte, error) {
