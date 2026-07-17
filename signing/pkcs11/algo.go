@@ -13,6 +13,7 @@ import (
 
 // Mechanisms not exported by miekg/pkcs11 v1.1.x, defined against the spec
 // values.
+// from https://docs.oasis-open.org/pkcs11/pkcs11-spec/v3.2/os/include/pkcs11-v3.2/pkcs11t.h
 const (
 	// ckmEDDSA is the standard PKCS#11 v3.0 EdDSA signing mechanism.
 	ckmEDDSA = 0x00001057
