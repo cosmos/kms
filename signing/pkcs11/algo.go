@@ -29,7 +29,7 @@ type keyAlgo struct {
 }
 
 // algos is the registry of supported key algorithms, keyed by the config
-// "algorithm" string. Ed25519 is the only entry for now.
+// "algorithm" string.
 var algos = map[config.Algorithm]keyAlgo{
 	config.AlgoED25519: {
 		name:      config.AlgoED25519,
@@ -53,7 +53,7 @@ func recoverSig(raw, digest, pub []byte) ([]byte, error) {
 	return ecdsasig.RecoverCompact(raw, digest, dpub)
 }
 
-// decodeEd25519Pub turns a CKA_EC_POINT value into aa byte array.
+// decodeEd25519Pub turns a CKA_EC_POINT value into a byte array.
 // PKCS#11 v3.0 encodes the point as a DER OCTET STRING wrapping the 32-byte key
 // (0x04 0x20 <32 bytes>); some tokens return the raw 32 bytes. Both are accepted.
 func decodeEd25519Pub(ckaECPoint []byte) ([]byte, error) {
@@ -74,7 +74,7 @@ func decodeEd25519Pub(ckaECPoint []byte) ([]byte, error) {
 func decodeSecp256k1Pub(ckaECPoint []byte) ([]byte, error) {
 	raw := ckaECPoint
 	// DER OCTET STRING (0x04) of length 65 uncompressed, or 33 compressed)
-	// wrapping the SEC1 point. A bare uncompressed point also starts with x04
+	// wrapping the SEC1 point. A bare uncompressed point also starts with 0x04
 	// but is 65 bytes, never 67 or 35.
 	if wrapped := len(raw) - 2; (wrapped == 65 || wrapped == 33) && raw[0] == 0x04 && int(raw[1]) == wrapped {
 		raw = raw[2:]

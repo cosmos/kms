@@ -14,12 +14,14 @@ import (
 // long-lived session; the mutex serializes signing (PKCS#11 sessions are not
 // safe for concurrent use) and guards Close.
 type Signer struct {
-	mod     *pkcs11.Ctx
-	module  string // module path, used to release the shared context on Close
+	mod    *pkcs11.Ctx
+	module string // module path, used to release the shared context on Close
+	// session is a handle used to access data for the signer session within the HSM
 	session pkcs11.SessionHandle
-	privH   pkcs11.ObjectHandle
-	pub     []byte
-	algo    keyAlgo
+	// privH is a uint that corresponds to the specific signing privKey within the HSM
+	privH pkcs11.ObjectHandle
+	pub   []byte
+	algo  keyAlgo
 
 	mu     sync.Mutex
 	closed bool
