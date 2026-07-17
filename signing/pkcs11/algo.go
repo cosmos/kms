@@ -53,14 +53,6 @@ func recoverSig(raw, digest, pub []byte) ([]byte, error) {
 	return ecdsasig.RecoverCompact(raw, digest, dpub)
 }
 
-func recoverSig(raw, digest, pub []byte) ([]byte, error) {
-	dpub, err := secp256k1.ParsePubKey(pub)
-	if err != nil {
-		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
-	}
-	return ecdsasig.RecoverCompact(raw, digest, dpub)
-}
-
 // decodeEd25519Pub turns a CKA_EC_POINT value into a byte array.
 // PKCS#11 v3.0 encodes the point as a DER OCTET STRING wrapping the 32-byte key
 // (0x04 0x20 <32 bytes>); some tokens return the raw 32 bytes. Both are accepted.
