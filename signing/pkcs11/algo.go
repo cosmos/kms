@@ -4,27 +4,40 @@ import (
 	"crypto/ed25519"
 	"fmt"
 
+	mldsa65 "github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/signing/ecdsasig"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/miekg/pkcs11"
 )
 
-// ckmEDDSA is the standard PKCS#11 v3.0 EdDSA signing mechanism. miekg/pkcs11
-// v1.1.x does not export it, so it is defined here against the spec value.
-const ckmEDDSA = 0x00001057
+// Mechanisms not exported by miekg/pkcs11 v1.1.x, defined against the spec
+// values.
+// from https://docs.oasis-open.org/pkcs11/pkcs11-spec/v3.2/os/include/pkcs11-v3.2/pkcs11t.h
+const (
+	// ckmEDDSA is the standard PKCS#11 v3.0 EdDSA signing mechanism.
+	ckmEDDSA = 0x00001057
+	// ckmMLDSA is the PKCS#11 v3.2 ML-DSA signing mechanism. With no
+	// mechanism parameter it is pure ML-DSA over the message with an empty
+	// context string — the mode cometbft mldsa65 verification expects.
+	ckmMLDSA = 0x0000001d
+)
 
 // keyAlgo describes how one validator key algorithm maps onto PKCS#11: which
-// signing mechanism to use, how to turn the token's public-key bytes into a
-// crypto.PubKey, and how to normalize the raw signature the token returns.
+// signing mechanism to use, which public-key attribute to read, how to turn
+// the token's public-key bytes into a crypto.PubKey, and how to normalize the
+// raw signature the token returns.
 //
-// Adding a new key type (ml-dsa, secp256k1eth, ...) is a single new entry in
-// algos: its mechanism, a decodePub, and (for ECDSA-family keys) a fixSig that
-// converts the token's DER signature into the consensus wire format.
+// Adding a new key type is a single new entry in algos: its mechanism, the
+// pubAttr/decodePub pair, and (for ECDSA-family keys) a fixSig that converts
+// the token's signature into the consensus wire format.
 type keyAlgo struct {
 	name      config.Algorithm
 	mechanism func() []*pkcs11.Mechanism
-	decodePub func(ckaECPoint []byte) ([]byte, error)
+	// pubAttr is the attribute holding the public key on the token:
+	// CKA_EC_POINT for EC-family keys, CKA_VALUE for ML-DSA.
+	pubAttr   uint
+	decodePub func(attr []byte) ([]byte, error)
 	fixSig    func(raw, digest, pub []byte) ([]byte, error)
 }
 
@@ -34,15 +47,33 @@ var algos = map[config.Algorithm]keyAlgo{
 	config.AlgoED25519: {
 		name:      config.AlgoED25519,
 		mechanism: func() []*pkcs11.Mechanism { return []*pkcs11.Mechanism{pkcs11.NewMechanism(ckmEDDSA, nil)} },
+		pubAttr:   pkcs11.CKA_EC_POINT,
 		decodePub: decodeEd25519Pub,
 		fixSig:    func(raw, digest, pub []byte) ([]byte, error) { return raw, nil },
 	},
 	config.AlgoSecp256k1Eth: {
 		name:      config.AlgoSecp256k1Eth,
 		mechanism: func() []*pkcs11.Mechanism { return []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)} },
+		pubAttr:   pkcs11.CKA_EC_POINT,
 		decodePub: decodeSecp256k1Pub,
 		fixSig:    recoverSig,
 	},
+	config.AlgoMLDSA65: {
+		name:      config.AlgoMLDSA65,
+		mechanism: func() []*pkcs11.Mechanism { return []*pkcs11.Mechanism{pkcs11.NewMechanism(ckmMLDSA, nil)} },
+		pubAttr:   pkcs11.CKA_VALUE,
+		decodePub: decodeMLDSA65Pub,
+		fixSig:    func(raw, digest, pub []byte) ([]byte, error) { return raw, nil },
+	},
+}
+
+// decodeMLDSA65Pub validates a CKA_VALUE attribute as a packed 1952-byte
+// ML-DSA-65 public key. The attribute holds the raw key with no DER wrapping.
+func decodeMLDSA65Pub(attr []byte) ([]byte, error) {
+	if len(attr) != mldsa65.PublicKeySize {
+		return nil, fmt.Errorf("ml-dsa-65 CKA_VALUE: expected %d-byte key, got %d bytes", mldsa65.PublicKeySize, len(attr))
+	}
+	return attr, nil
 }
 
 func recoverSig(raw, digest, pub []byte) ([]byte, error) {
