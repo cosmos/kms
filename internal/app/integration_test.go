@@ -73,7 +73,7 @@ func TestEndToEndSigning(t *testing.T) {
 	// kms (signer) side.
 	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"), true)
 	require.NoError(t, err)
 
 	// validator (listener) side.
@@ -132,7 +132,7 @@ func TestSigningBackendErrorReturnsEmbeddedError(t *testing.T) {
 	// Sign always fails.
 	wantErr := errors.New("backend signing unavailable")
 	fs := failingSigner{pub: ed25519.GenPrivKey().PubKey(), err: wantErr}
-	cs, err := signer.NewChainSigner(chainID, fs, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, fs, filepath.Join(dir, "state.json"), true)
 	require.NoError(t, err)
 
 	// validator (listener) side.
@@ -208,7 +208,7 @@ func TestEndToEndSigningNoise(t *testing.T) {
 	// KMS signer (file backend + ChainSigner).
 	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"), true)
 	require.NoError(t, err)
 
 	// Validator side: a Noise listener (node-key identity, allowlisting the KMS
@@ -258,7 +258,7 @@ func TestReconnectAfterListenerRestart(t *testing.T) {
 
 	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"), true)
 	require.NoError(t, err)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -309,7 +309,7 @@ func TestReconnectDisabledStopsAfterDrop(t *testing.T) {
 
 	ks, err := file.LoadEd25519(writeKey(t, dir))
 	require.NoError(t, err)
-	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"))
+	cs, err := signer.NewChainSigner(chainID, ks, filepath.Join(dir, "state.json"), true)
 	require.NoError(t, err)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
