@@ -4,8 +4,7 @@
 # kms refuses to start when a chain's sign-state file is missing or empty
 # (double-sign protection would silently reset to height 0). On the FIRST start
 # of a validator that has never signed, pass `kms start --allow-fresh-state <id>`.
-# When migrating from tmkms, seed the floor first with `kms state init`
-# (see docs/tmkms-migration.md).
+# Or seed the floor first with `kms state init`
 chains:
   - id: my-chain-1
     # state_file defaults to <home>/state/<id>.json if omitted

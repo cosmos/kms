@@ -32,13 +32,8 @@ var _ types.PrivValidator = (*ChainSigner)(nil)
 // double-sign protection survives restarts. The directory containing stateFile
 // must already exist (config validation guarantees this).
 //
-// A missing or empty state file is a fatal error, not a fresh start: silently
-// resetting the double-sign floor to height 0 lets a wiped volume or a skipped
-// tmkms migration turn into equivocation and slashing. allowFresh waives this
-// for one startup (the `kms start --allow-fresh-state <chain-id>` flag, for a
-// validator that has never signed on this chain); the never-signed marker is
-// written to stateFile immediately, so the next start is guarded again. A
-// corrupt (non-empty, unparseable) file is always fatal.
+// A missing or empty state file is a fatal error, not a fresh start.
+// A corrupt (non-empty, unparseable) file is always fatal.
 func NewChainSigner(chainID string, s signing.Signer, stateFile string, allowFresh bool) (*ChainSigner, error) {
 	adapter, err := newSignerPrivKey(context.Background(), s)
 	if err != nil {
@@ -67,7 +62,7 @@ func reloadState(fpv *privval.FilePV, stateFile, chainID string, allowFresh bool
 		if !allowFresh {
 			return fmt.Errorf("sign-state file %s is missing or empty; refusing to start at height 0. "+
 				"If this validator has NEVER signed on chain %s, restart with --allow-fresh-state %s; "+
-				"when migrating from tmkms, seed the floor with `kms state init` first (see docs/tmkms-migration.md)",
+				"or seed the floor with `kms state init` first",
 				stateFile, chainID, chainID)
 		}
 		return InitState(stateFile, 0, 0, 0)

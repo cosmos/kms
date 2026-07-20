@@ -19,8 +19,15 @@ import (
 	"github.com/cosmos/kms/internal/version"
 )
 
-// home is the home directory of kms
-var home string
+var (
+
+	// home is the home directory of kms
+	home string
+
+	// allowFresh lists chain ids permitted to start with a missing/empty
+	// sign-state file (kms start --allow-fresh-state).
+	allowFresh []string
+)
 
 func main() {
 	if err := rootCmd().Execute(); err != nil {
@@ -102,7 +109,6 @@ func runInit(home string) error {
 }
 
 func startCmd() *cobra.Command {
-	var allowFresh []string
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Connect to validators and serve signing requests",
@@ -177,7 +183,7 @@ func stateInitCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "init --chain <id> --height H [--round R] [--step S]",
-		Short: "Seed a chain's double-sign floor: kms refuses to sign at or below height/round/step (used when migrating from tmkms, see docs/tmkms-migration.md)",
+		Short: "Seed a chain's double-sign floor: kms refuses to sign at or below height/round/step",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			sf, err := chainStateFile(home, chainID)
 			if err != nil {
