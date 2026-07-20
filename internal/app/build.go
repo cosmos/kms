@@ -125,28 +125,7 @@ func newPrivvalSigner(k config.Key) (signing.Signer, error) {
 		}
 		return s, nil
 	case config.BackendPKCS11:
-		var keyID []byte
-		if k.KeyID != "" {
-			var derr error
-			if keyID, derr = hex.DecodeString(k.KeyID); derr != nil {
-				return nil, fmt.Errorf("app: pkcs11 key_id %q: %w", k.KeyID, derr)
-			}
-		}
-		s, err := pkcs11.Open(pkcs11.Config{
-			Module:     k.Module,
-			TokenLabel: k.TokenLabel,
-			Slot:       k.Slot,
-			KeyLabel:   k.KeyLabel,
-			KeyID:      keyID,
-			PIN:        k.PIN,
-			PINEnv:     k.PINEnv,
-			PINFile:    k.PINFile,
-			Algorithm:  k.Algorithm,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return s, nil
+		return openPKCS11(k.PKCS11Config, k.KeyID, k.Algorithm)
 	case config.BackendAWSKMS:
 		s, err := awskms.Open(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,
@@ -162,6 +141,28 @@ func newPrivvalSigner(k config.Key) (signing.Signer, error) {
 	default:
 		return nil, fmt.Errorf("app: key for chains %v has unknown backend %q", k.ChainIDs, k.Backend)
 	}
+}
+
+// openPKCS11 opens a token key from its config, decoding the hex CKA_ID.
+func openPKCS11(p config.PKCS11Config, keyID string, algo config.Algorithm) (signing.Signer, error) {
+	var id []byte
+	if keyID != "" {
+		var err error
+		if id, err = hex.DecodeString(keyID); err != nil {
+			return nil, fmt.Errorf("app: pkcs11 key_id %q: %w", keyID, err)
+		}
+	}
+	return pkcs11.Open(pkcs11.Config{
+		Module:     p.Module,
+		TokenLabel: p.TokenLabel,
+		Slot:       p.Slot,
+		KeyLabel:   p.KeyLabel,
+		KeyID:      id,
+		PIN:        p.PIN,
+		PINEnv:     p.PINEnv,
+		PINFile:    p.PINFile,
+		Algorithm:  algo,
+	})
 }
 
 // Server is a signing service GRPC server.
@@ -246,15 +247,22 @@ func NewServer(c *config.Config, home string, logger log.Logger) (srv *Server, e
 // backend/algorithm.
 //
 // Only currently supported configurations of the grpc signer:
-//   - File backend with secp key
-//   - AWS KMS backend with ed25519 or secp key
+//   - File backend with ed25519 or secp256k1eth key
+//   - PKCS#11 backend with ed25519 or secp256k1eth key
+//   - AWS KMS backend with ed25519, secp256k1, or secp256k1eth key
 func newGRPCSigner(home string, k config.GRPCKey) (signing.Signer, error) {
 	be, algo := k.Backend, k.Algorithm
 
 	switch {
+	case be == config.BackendFile && algo == config.AlgoED25519:
+		return file.LoadEd25519(k.KeyFile)
 	case be == config.BackendFile && algo == config.AlgoSecp256k1Eth:
 		return file.LoadSecp256k1Eth(k.KeyFile)
-	case be == config.BackendAWSKMS && (algo == config.AlgoED25519 || algo == config.AlgoSecp256k1):
+	case be == config.BackendPKCS11:
+		return openPKCS11(k.PKCS11Config, k.KeyID, algo)
+	case be == config.BackendAWSKMS &&
+		(algo == config.AlgoED25519 || algo == config.AlgoSecp256k1 || algo == config.AlgoSecp256k1Eth):
+
 		return awskms.Open(context.Background(), awskms.Config{
 			KeyID:     k.KeyID,
 			Region:    k.Region,
