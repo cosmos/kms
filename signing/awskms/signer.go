@@ -85,7 +85,7 @@ func (s *Signer) Sign(ctx context.Context, payload []byte) ([]byte, error) {
 		msg = s.algo.prepare(payload, s.pub)
 	}
 	if s.algo.msgType == types.MessageTypeRaw && len(msg) > kmsRawMessageLimit {
-		return nil, fmt.Errorf("awskms: %d-byte payload exceeds the %d-byte AWS KMS RAW message limit, which scheme %s cannot sign",
+		return nil, fmt.Errorf("awskms: %d-byte msg exceeds the %d-byte AWS KMS RAW message limit, which scheme %s cannot sign",
 			len(msg), kmsRawMessageLimit, s.algo.name)
 	}
 	out, err := s.client.Sign(ctx, &kms.SignInput{
