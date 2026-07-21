@@ -29,7 +29,8 @@ func newSigner(t *testing.T) (*signer.ChainSigner, crypto.PubKey, string) {
 	t.Helper()
 	priv := ed25519.GenPrivKey()
 	state := filepath.Join(t.TempDir(), "state.json")
-	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state)
+	require.NoError(t, signer.InitState(state, 0, 0, 0))
+	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, false)
 	require.NoError(t, err)
 	return cs, priv.PubKey(), state
 }
@@ -56,16 +57,75 @@ func TestStatePersistsAcrossReload(t *testing.T) {
 	priv := ed25519.GenPrivKey()
 	state := filepath.Join(t.TempDir(), "state.json")
 
-	cs1, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state)
+	cs1, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, true)
 	require.NoError(t, err)
 	require.NoError(t, cs1.SignVote(chainID, precommit(100, 0)))
 
-	cs2, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state)
+	cs2, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, false)
 	require.NoError(t, err)
 	require.Error(t, cs2.SignVote(chainID, precommit(50, 0)))
 
 	_, statErr := os.Stat(state)
 	require.NoError(t, statErr)
+}
+
+func TestMissingOrEmptyStateFileFailsClosed(t *testing.T) {
+	priv := ed25519.GenPrivKey()
+	state := filepath.Join(t.TempDir(), "state.json")
+
+	// Missing file: refuse to start.
+	_, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, false)
+	require.ErrorContains(t, err, "missing or empty")
+
+	// Empty file (e.g. disk-full truncation): refuse to start.
+	require.NoError(t, os.WriteFile(state, nil, 0o600))
+	_, err = signer.NewChainSigner(chainID, memSigner{priv: priv}, state, false)
+	require.ErrorContains(t, err, "missing or empty")
+}
+
+func TestAllowFreshWritesMarkerImmediately(t *testing.T) {
+	priv := ed25519.GenPrivKey()
+	state := filepath.Join(t.TempDir(), "state.json")
+
+	_, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, true)
+	require.NoError(t, err)
+
+	// The never-signed marker exists before any sign, so the waiver is consumed:
+	// the next start is guarded without --allow-fresh-state.
+	raw, err := os.ReadFile(state)
+	require.NoError(t, err)
+	require.NotEmpty(t, raw)
+	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, false)
+	require.NoError(t, err)
+	require.NoError(t, cs.SignVote(chainID, precommit(1, 0)))
+}
+
+func TestCorruptStateFileFatalEvenWithAllowFresh(t *testing.T) {
+	priv := ed25519.GenPrivKey()
+	state := filepath.Join(t.TempDir(), "state.json")
+	require.NoError(t, os.WriteFile(state, []byte(`{"height": nope`), 0o600))
+
+	_, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, true)
+	require.Error(t, err)
+}
+
+func TestInitStateSeedsDoubleSignFloor(t *testing.T) {
+	priv := ed25519.GenPrivKey()
+	state := filepath.Join(t.TempDir(), "state.json")
+	require.NoError(t, signer.InitState(state, 100, 0, 3))
+
+	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, state, false)
+	require.NoError(t, err)
+
+	require.Error(t, cs.SignVote(chainID, precommit(100, 0)), "at the floor")
+	require.Error(t, cs.SignVote(chainID, precommit(99, 0)), "below the floor")
+	require.NoError(t, cs.SignVote(chainID, precommit(101, 0)), "above the floor")
+}
+
+func TestInitStateRefusesOverwrite(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state.json")
+	require.NoError(t, signer.InitState(state, 42, 0, 3))
+	require.ErrorContains(t, signer.InitState(state, 0, 0, 0), "refusing to overwrite")
 }
 
 func TestVoteExtensionSignedForNonNilPrecommit(t *testing.T) {
@@ -119,7 +179,7 @@ func TestStateSaveFailureReturnsErrorNotPanic(t *testing.T) {
 	dir := t.TempDir()
 	statePath := filepath.Join(dir, "state.json")
 
-	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, statePath)
+	cs, err := signer.NewChainSigner(chainID, memSigner{priv: priv}, statePath, true)
 	require.NoError(t, err)
 
 	// Sabotage persistence: remove any state file and create a DIRECTORY at the
