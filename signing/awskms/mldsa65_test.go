@@ -1,6 +1,7 @@
 package awskms
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -12,6 +13,7 @@ import (
 	"github.com/cometbft/cometbft/crypto/mldsa65"
 	"github.com/cosmos/kms/config"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/sha3"
 )
 
 // marshalMLDSA65SPKI wraps a packed ML-DSA-65 public key in the DER
@@ -31,9 +33,13 @@ func marshalMLDSA65SPKI(t *testing.T, pub []byte) []byte {
 
 // fakeMLDSAKMS is an in-process stand-in for AWS KMS backed by a real
 // ML-DSA-65 key, exercising the SPKI decode and sign->verify path offline.
+// KMS only sees the 64-byte μ under EXTERNAL_MU, so the fake holds the
+// expected pre-μ message: it checks the received μ against one recomputed
+// from that message and signs the message in pure mode.
 type fakeMLDSAKMS struct {
 	t    *testing.T
 	priv mldsa65.PrivKey
+	msg  []byte
 }
 
 func (f *fakeMLDSAKMS) GetPublicKey(_ context.Context, _ *kms.GetPublicKeyInput, _ ...func(*kms.Options)) (*kms.GetPublicKeyOutput, error) {
@@ -44,15 +50,30 @@ func (f *fakeMLDSAKMS) GetPublicKey(_ context.Context, _ *kms.GetPublicKeyInput,
 }
 
 func (f *fakeMLDSAKMS) Sign(_ context.Context, in *kms.SignInput, _ ...func(*kms.Options)) (*kms.SignOutput, error) {
-	if in.MessageType != types.MessageTypeRaw {
+	if in.MessageType != types.MessageTypeExternalMu {
 		return nil, errors.New("fakeMLDSAKMS: unexpected message type")
 	}
 	if in.SigningAlgorithm != types.SigningAlgorithmSpecMlDsaShake256 {
 		return nil, errors.New("fakeMLDSAKMS: unexpected signing algorithm")
 	}
-	// Mirror KMS ML_DSA_SHAKE_256 + MessageType=RAW: pure ML-DSA over the
-	// message with an empty context.
-	sig, err := f.priv.Sign(in.Message)
+	// Recompute the FIPS 204 μ for the expected message (empty context) and
+	// require the signer to have sent exactly that.
+	tr := make([]byte, 64)
+	sha3.ShakeSum256(tr, f.priv.PubKey().Bytes())
+	h := sha3.NewShake256()
+	h.Write(tr)
+	h.Write([]byte{0, 0})
+	h.Write(f.msg)
+	mu := make([]byte, 64)
+	if _, err := h.Read(mu); err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(in.Message, mu) {
+		return nil, errors.New("fakeMLDSAKMS: message is not the expected μ")
+	}
+	// A signature over external μ is indistinguishable from a pure-mode
+	// signature over the message, so sign the message directly.
+	sig, err := f.priv.Sign(f.msg)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +93,9 @@ func TestMLDSA65OpenAndSignRoundtrip(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, pub.Equals(priv.PubKey()))
 
-	msg := []byte("canonical consensus sign-bytes")
+	// Larger than the 4096-byte KMS RAW cap: EXTERNAL_MU must not be size-bound.
+	msg := bytes.Repeat([]byte("vote-extension sign-bytes "), 200)
+	f.msg = msg
 	sig, err := s.Sign(context.Background(), msg)
 	require.NoError(t, err)
 	require.True(t, pub.VerifySignature(msg, sig), "cometbft pubkey must verify the KMS signature")
