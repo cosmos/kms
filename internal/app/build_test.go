@@ -34,7 +34,7 @@ func TestBuildWiresChainSigners(t *testing.T) {
 	}
 	require.NoError(t, c.Validate(home))
 
-	mgr, cleanup, err := app.Build(c, log.TestingLogger())
+	mgr, cleanup, err := app.Build(c, []string{"c1"}, log.TestingLogger())
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 	require.NotNil(t, mgr)
@@ -48,7 +48,7 @@ func TestBuildFailsOnMissingKeyFile(t *testing.T) {
 		Keys:       []config.Key{{ChainIDs: []string{"c1"}, Backend: config.BackendFile, Algorithm: config.AlgoED25519, FileConfig: config.FileConfig{KeyFile: filepath.Join(home, "missing.json")}}},
 	}
 	require.NoError(t, c.Validate(home))
-	_, cleanup, err := app.Build(c, log.TestingLogger())
+	_, cleanup, err := app.Build(c, nil, log.TestingLogger())
 	t.Cleanup(cleanup)
 	require.Error(t, err)
 }
