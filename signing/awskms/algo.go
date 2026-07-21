@@ -92,9 +92,9 @@ var algos = map[config.Algorithm]keyAlgo{
 	// ML-DSA-65 signs via MessageType=EXTERNAL_MU: the FIPS 204 message
 	// representative μ is computed locally (empty context string) and KMS signs
 	// the fixed 64-byte μ, sidestepping the 4096-byte cap KMS puts on RAW
-	// messages — vote-extension sign-bytes can exceed it. The resulting
-	// signature verifies as pure ML-DSA, the mode cometbft mldsa65 verification
-	// expects, and is the packed FIPS 204 form, so fixSig is the identity.
+	// messages.
+	// The resulting signature verifies as pure ML-DSA, and is the packed FIPS 204 form,
+	// so fixSig is the identity.
 	config.AlgoMLDSA65: {
 		name:      config.AlgoMLDSA65,
 		keySpec:   types.KeySpecMlDsa65,

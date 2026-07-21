@@ -3,6 +3,7 @@ package awskms
 import (
 	"bytes"
 	"context"
+	"crypto/sha3"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
@@ -13,7 +14,6 @@ import (
 	"github.com/cometbft/cometbft/crypto/mldsa65"
 	"github.com/cosmos/kms/config"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/sha3"
 )
 
 // marshalMLDSA65SPKI wraps a packed ML-DSA-65 public key in the DER
@@ -58,16 +58,8 @@ func (f *fakeMLDSAKMS) Sign(_ context.Context, in *kms.SignInput, _ ...func(*kms
 	}
 	// Recompute the FIPS 204 μ for the expected message (empty context) and
 	// require the signer to have sent exactly that.
-	tr := make([]byte, 64)
-	sha3.ShakeSum256(tr, f.priv.PubKey().Bytes())
-	h := sha3.NewShake256()
-	h.Write(tr)
-	h.Write([]byte{0, 0})
-	h.Write(f.msg)
-	mu := make([]byte, 64)
-	if _, err := h.Read(mu); err != nil {
-		return nil, err
-	}
+	tr := sha3.SumSHAKE256(f.priv.PubKey().Bytes(), 64)
+	mu := sha3.SumSHAKE256(append(append(tr, 0, 0), f.msg...), 64)
 	if !bytes.Equal(in.Message, mu) {
 		return nil, errors.New("fakeMLDSAKMS: message is not the expected μ")
 	}
