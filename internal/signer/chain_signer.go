@@ -78,25 +78,21 @@ func (c *ChainSigner) GetPubKey() (crypto.PubKey, error) {
 }
 
 // SignVote implements types.PrivValidator.
-func (c *ChainSigner) SignVote(chainID string, vote *cmtproto.Vote) (err error) {
+//
+// State-persistence panics from FilePV (Save failure, corrupt sign state) are
+// deliberately NOT recovered: FilePV advances its in-memory floor before
+// persisting, so recovering here would let a later same-HRS retry release the
+// cached signature with no floor on disk.
+func (c *ChainSigner) SignVote(chainID string, vote *cmtproto.Vote) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("chain %q: sign vote failed (state persistence): %v", c.chainID, r)
-		}
-	}()
 	return c.fpv.SignVote(chainID, vote)
 }
 
-// SignProposal implements types.PrivValidator.
-func (c *ChainSigner) SignProposal(chainID string, proposal *cmtproto.Proposal) (err error) {
+// SignProposal implements types.PrivValidator. Persistence panics propagate;
+// see SignVote.
+func (c *ChainSigner) SignProposal(chainID string, proposal *cmtproto.Proposal) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("chain %q: sign proposal failed (state persistence): %v", c.chainID, r)
-		}
-	}()
 	return c.fpv.SignProposal(chainID, proposal)
 }
