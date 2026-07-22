@@ -128,6 +128,14 @@ func TestSignPropagatesError(t *testing.T) {
 	require.ErrorContains(t, err, "throttled")
 }
 
+func TestSignRejectsOversizedRawPayload(t *testing.T) {
+	f := newFakeKMS(t)
+	s, err := open(context.Background(), f, "k", algos[config.AlgoED25519])
+	require.NoError(t, err)
+	_, err = s.Sign(context.Background(), make([]byte, kmsRawMessageLimit+1))
+	require.ErrorContains(t, err, "RAW message limit")
+}
+
 func TestOpenUnknownAlgorithm(t *testing.T) {
 	_, err := Open(context.Background(), Config{KeyID: "k", Algorithm: "rsa-9000"})
 	require.ErrorContains(t, err, "unknown algorithm")
