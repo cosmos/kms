@@ -174,7 +174,7 @@ func TestSignProposalVerifiableAndRegressionRejected(t *testing.T) {
 	require.Error(t, cs.SignProposal(chainID, lower))
 }
 
-func TestStateSaveFailureReturnsErrorNotPanic(t *testing.T) {
+func TestStateSaveFailurePanicsFailStop(t *testing.T) {
 	priv := ed25519.GenPrivKey()
 	dir := t.TempDir()
 	statePath := filepath.Join(dir, "state.json")
@@ -187,7 +187,8 @@ func TestStateSaveFailureReturnsErrorNotPanic(t *testing.T) {
 	_ = os.Remove(statePath)
 	require.NoError(t, os.Mkdir(statePath, 0o755))
 
-	// SignVote must return an error (recovered panic), and must NOT panic the test.
-	err = cs.SignVote(chainID, precommit(30, 0))
-	require.Error(t, err)
+	// A sign-state persistence failure must panic (fail-stop), not be swallowed
+	// into an error: FilePV has already advanced its in-memory floor, so
+	// continuing could release a signature with no floor on disk.
+	require.Panics(t, func() { _ = cs.SignVote(chainID, precommit(30, 0)) })
 }
