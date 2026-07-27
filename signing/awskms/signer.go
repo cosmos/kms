@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
+	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 
 	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/signing"
@@ -72,13 +73,24 @@ func (s *Signer) PubKey() []byte { return s.pub }
 // Scheme reports the signers signature scheme.
 func (s *Signer) Scheme() config.Algorithm { return s.algo.name }
 
+// kmsRawMessageLimit is the AWS KMS cap on MessageType=RAW messages.
+const kmsRawMessageLimit = 4096
+
 // Sign signs the payload via the KMS Sign API using the scheme's message type
 // and returns the signature in the scheme's wire form.
 // In cases where the MessageType is Raw, the payload has not been hashed.
 func (s *Signer) Sign(ctx context.Context, payload []byte) ([]byte, error) {
+	msg := payload
+	if s.algo.prepare != nil {
+		msg = s.algo.prepare(payload, s.pub)
+	}
+	if s.algo.msgType == types.MessageTypeRaw && len(msg) > kmsRawMessageLimit {
+		return nil, fmt.Errorf("awskms: %d-byte msg exceeds the %d-byte AWS KMS RAW message limit, which scheme %s cannot sign",
+			len(msg), kmsRawMessageLimit, s.algo.name)
+	}
 	out, err := s.client.Sign(ctx, &kms.SignInput{
 		KeyId:            aws.String(s.keyID),
-		Message:          payload,
+		Message:          msg,
 		MessageType:      s.algo.msgType,
 		SigningAlgorithm: s.algo.signAlgo,
 	})

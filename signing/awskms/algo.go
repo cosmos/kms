@@ -11,6 +11,7 @@ import (
 	mldsa65 "github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/cosmos/kms/config"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"golang.org/x/crypto/sha3"
 
 	"github.com/cosmos/kms/signing/ecdsasig"
 )
@@ -40,6 +41,9 @@ type keyAlgo struct {
 	//   - ECDSA-family keys will DER-decode (r,s), apply low-S, and emit
 	//     64-byte r||s or 65-byte r||s||v here.
 	fixSig func(raw, digest, pub []byte) ([]byte, error)
+	// prepare, when set, transforms the payload into the message actually sent
+	// to KMS (e.g. the FIPS 204 μ for EXTERNAL_MU). Nil sends the payload as-is.
+	prepare func(payload, pub []byte) []byte
 }
 
 // algos is the registry of supported key algorithms, keyed by the config
@@ -49,6 +53,9 @@ type keyAlgo struct {
 // signing algorithm and MessageType=RAW, which is standard RFC 8032 PureEd25519
 // over the raw message — identical to the file/pkcs11 backends. The
 // signature is a fixed raw 64 bytes, so fixSig is the identity.
+// KMS caps RAW messages at 4096 bytes and offers no pre-hashed Ed25519 mode
+// compatible with cometbft's PureEd25519 verification, so payloads above the
+// cap (possible with large vote extensions) are rejected locally in Sign.
 //
 // Secp256k1 uses the ECC_SECG_P256K1 key spec with ECDSA_SHA_256 and
 // MessageType=RAW: KMS SHA-256-hashes the consensus sign-bytes and signs,
@@ -82,17 +89,20 @@ var algos = map[config.Algorithm]keyAlgo{
 		decodePub: decodeSecp256k1Pub,
 		fixSig:    recoverableSig,
 	},
-	// ML-DSA-65 with MessageType=RAW is pure ML-DSA over the message with an
-	// empty context string — the mode cometbft mldsa65 verification expects.
-	// KMS caps RAW messages at 4096 bytes; consensus sign-bytes are far below.
-	// The signature is the packed FIPS 204 form, so fixSig is the identity.
+	// ML-DSA-65 signs via MessageType=EXTERNAL_MU: the FIPS 204 message
+	// representative μ is computed locally (empty context string) and KMS signs
+	// the fixed 64-byte μ, sidestepping the 4096-byte cap KMS puts on RAW
+	// messages.
+	// The resulting signature verifies as pure ML-DSA, and is the packed FIPS 204 form,
+	// so fixSig is the identity.
 	config.AlgoMLDSA65: {
 		name:      config.AlgoMLDSA65,
 		keySpec:   types.KeySpecMlDsa65,
-		msgType:   types.MessageTypeRaw,
+		msgType:   types.MessageTypeExternalMu,
 		signAlgo:  types.SigningAlgorithmSpecMlDsaShake256,
 		decodePub: decodeMLDSA65Pub,
 		fixSig:    func(raw, digest, pub []byte) ([]byte, error) { return raw, nil },
+		prepare:   mldsaMu,
 	},
 }
 
@@ -114,6 +124,22 @@ func recoverableSig(raw, digest, pub []byte) ([]byte, error) {
 		return nil, fmt.Errorf("parse secp256k1 public key: %w", err)
 	}
 	return ecdsasig.RecoverDER(raw, digest, dpub)
+}
+
+// mldsaMu computes the FIPS 204 message representative
+// μ = SHAKE256(tr ‖ 0x00 ‖ 0x00 ‖ payload, 64) with tr = SHAKE256(pub, 64):
+// pure-mode signing with an empty context string, so KMS EXTERNAL_MU
+// signatures verify under standard pure ML-DSA verification.
+func mldsaMu(payload, pub []byte) []byte {
+	tr := make([]byte, 64)
+	sha3.ShakeSum256(tr, pub)
+	buf := make([]byte, 0, len(tr)+2+len(payload))
+	buf = append(buf, tr...)
+	buf = append(buf, 0, 0)
+	buf = append(buf, payload...)
+	mu := make([]byte, 64)
+	sha3.ShakeSum256(mu, buf)
+	return mu
 }
 
 // oidMLDSA65 is id-ml-dsa-65 (2.16.840.1.101.3.4.3.18), the SPKI algorithm
