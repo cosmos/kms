@@ -25,11 +25,13 @@ import (
 	"github.com/cosmos/kms/signing/pkcs11"
 )
 
-// Build constructs a Manager from a validated config. The returned cleanup
-// function releases backend resources (e.g. PKCS#11 sessions) and must be called
-// on shutdown. cleanup is non-nil even when an error is returned, so callers can
-// always defer it.
-func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup func(), err error) {
+// Build constructs a Manager from a validated config. allowFresh names chains
+// (from `kms start --allow-fresh-state`) permitted to start with a missing or
+// empty sign-state file; every other chain fails closed on one. The returned
+// cleanup function releases backend resources (e.g. PKCS#11 sessions) and must
+// be called on shutdown. cleanup is non-nil even when an error is returned, so
+// callers can always defer it.
+func Build(c *config.Config, allowFresh []string, logger log.Logger) (mgr *manager.Manager, cleanup func(), err error) {
 	// Signers that hold OS/HSM resources are closed by cleanup.
 	var closers []io.Closer
 	cleanup = func() {
@@ -66,10 +68,22 @@ func Build(c *config.Config, logger log.Logger) (mgr *manager.Manager, cleanup f
 		stateFiles[ch.ID] = ch.StateFile
 	}
 
+	// A typo'd --allow-fresh-state would silently waive nothing; reject it.
+	fresh := map[string]bool{}
+	for _, id := range allowFresh {
+		if _, ok := stateFiles[id]; !ok {
+			return nil, cleanup, fmt.Errorf("app: --allow-fresh-state names unknown chain %q", id)
+		}
+		fresh[id] = true
+	}
+
 	// chainID -> *ChainSigner.
 	signers := map[string]*signer.ChainSigner{}
 	for id, ks := range keySigners {
-		cs, cerr := signer.NewChainSigner(id, ks, stateFiles[id])
+		if fresh[id] {
+			logger.Info("starting with fresh sign state at height 0 (--allow-fresh-state)", "chain", id, "state_file", stateFiles[id])
+		}
+		cs, cerr := signer.NewChainSigner(id, ks, stateFiles[id], fresh[id])
 		if cerr != nil {
 			return nil, cleanup, cerr
 		}

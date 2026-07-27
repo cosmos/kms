@@ -19,10 +19,10 @@ const (
 	defaultWriteTimeout   = 5 * time.Second
 	defaultBackoffInitial = 200 * time.Millisecond
 	defaultBackoffMax     = 10 * time.Second
-
-	// maxRemoteSignerMsgSize mirrors privval's framing cap (10 KiB).
-	maxRemoteSignerMsgSize = 1024 * 10
 )
+
+// maxRemoteSignerMsgSize mirrors privval's framing cap.
+var maxRemoteSignerMsgSize = types.MaxVoteExtensionSize + 2*types.MaxSignatureSize + 1024
 
 // DefaultDialTimeout is the per-dial timeout used for validator connections.
 const DefaultDialTimeout = defaultDialTimeout

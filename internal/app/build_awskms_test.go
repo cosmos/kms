@@ -36,7 +36,7 @@ func TestBuildAWSKMSKeyUnreachableErrors(t *testing.T) {
 		}
 		require.NoError(t, c.Validate(home))
 
-		_, cleanup, err := app.Build(c, log.TestingLogger())
+		_, cleanup, err := app.Build(c, nil, log.TestingLogger())
 		t.Cleanup(cleanup)
 		// The error must come from awskms.Open's GetPublicKey call (connection
 		// refused against the closed port), proving the provider was wired in. Before
