@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.43.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.31
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.30
-	github.com/aws/aws-sdk-go-v2/service/kms v1.54.1
+	github.com/aws/aws-sdk-go-v2/service/kms v1.55.0
 	github.com/cloudflare/circl v1.6.3
 	github.com/cometbft/cometbft v0.39.0-rc1.0.20260615134937-9ea34470f336
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
