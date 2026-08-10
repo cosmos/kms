@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.31
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.30
 	github.com/aws/aws-sdk-go-v2/service/kms v1.55.0
-	github.com/cloudflare/circl v1.6.4
+	github.com/cloudflare/circl v1.6.5
 	github.com/cometbft/cometbft v0.40.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/libp2p/go-libp2p v0.47.0
