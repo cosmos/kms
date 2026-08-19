@@ -110,6 +110,8 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      TAG: ${{ github.event.inputs.tag || (github.event_name == 'push' && github.ref == 'refs/heads/main' && 'latest') || github.ref_name }}
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
@@ -130,17 +132,25 @@ jobs:
 
       - name: Prepare Docker tag
         id: tags
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            DOCKER_TAG="${{ inputs.tag }}"
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            DOCKER_TAG="latest"
-          else
-            # Non-main branch push → use the branch name
-            DOCKER_TAG="${{ github.ref_name }}"
+          set -euo pipefail
+          DOCKER_TAG="${TAG//[^a-zA-Z0-9._-]/-}"
+          # Sanitizing can also yield `latest` from a ref named `latest`, so
+          # re-check ownership after rewriting rather than before.
+          if [[ "$DOCKER_TAG" == "latest" && ! ( "$EVENT_NAME" == "push" && "$GIT_REF" == "refs/heads/main" ) ]]; then
+            echo "::error::refusing to publish 'latest' from $EVENT_NAME on $GIT_REF"
+            exit 1
           fi
-          DOCKER_TAG=$(echo "$DOCKER_TAG" | sed 's/[^a-zA-Z0-9\.-]/-/g')
-          echo "DOCKER_TAG=${DOCKER_TAG}" >> "$GITHUB_OUTPUT"
+          # Reject what Docker would not accept as a tag, rather than letting
+          # imagetools fail later with an opaque reference-parse error.
+          if [[ ! "$DOCKER_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$ ]]; then
+            echo "::error::ref did not yield a usable image tag: $DOCKER_TAG"
+            exit 1
+          fi
+          echo "DOCKER_TAG=$DOCKER_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
