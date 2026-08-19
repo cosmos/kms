@@ -1,0 +1,152 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git ref (branch or tag) to build'
+        required: true
+        type: string
+      pkcs11:
+        description: 'Bundle PKCS#11 provider libs (SoftHSM2 + OpenSC) in the runtime image'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  ORG: ${{ github.repository_owner }}
+  IMAGE_NAME: kms
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    permissions:
+      packages: write
+      contents: read
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    name: build (${{ matrix.platform }})
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          # On workflow_dispatch, build the caller-specified ref. On push events
+          # inputs.tag is empty, which checkout treats as the triggering commit.
+          ref: ${{ inputs.tag }}
+          # Full history + tags so the Makefile's git-describe version stamp works.
+          fetch-depth: 0
+
+      - name: Prepare platform pair
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - name: Resolve KMS_VERSION
+        run: |
+          # Same default as the Makefile's KMS_VERSION.
+          echo "KMS_VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo '0.1.0-dev')" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ matrix.platform }}
+          # Mirrors `make docker-build`.
+          build-args: |
+            KMS_VERSION=${{ env.KMS_VERSION }}
+            PKCS11=${{ inputs.pkcs11 || false }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=kms-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=kms-${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    permissions:
+      packages: write
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare Docker tag
+        id: tags
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            DOCKER_TAG="${{ inputs.tag }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            DOCKER_TAG="latest"
+          else
+            # Non-main branch push → use the branch name
+            DOCKER_TAG="${{ github.ref_name }}"
+          fi
+          DOCKER_TAG=$(echo "$DOCKER_TAG" | sed 's/[^a-zA-Z0-9\.-]/-/g')
+          echo "DOCKER_TAG=${DOCKER_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }}:${{ steps.tags.outputs.DOCKER_TAG }}" \
+            $(printf '${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect manifest
+        run: |
+          docker buildx imagetools inspect \
+            "${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE_NAME }}:${{ steps.tags.outputs.DOCKER_TAG }}"
