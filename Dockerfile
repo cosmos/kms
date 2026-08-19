@@ -37,4 +37,5 @@ USER kms
 WORKDIR /home/kms
 EXPOSE 9090
 
-ENTRYPOINT ["kms", "--home", "/home/kms", "start"]
+ENTRYPOINT ["kms"]
+CMD ["--home", "/home/kms", "start"]
