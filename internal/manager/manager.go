@@ -2,6 +2,7 @@ package manager
 
 import (
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,7 +11,10 @@ import (
 	"github.com/cometbft/cometbft/libs/protoio"
 	"github.com/cometbft/cometbft/privval"
 	privvalproto "github.com/cometbft/cometbft/proto/tendermint/privval"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	"github.com/cometbft/cometbft/types"
+	"github.com/cosmos/kms/internal/metrics"
 )
 
 const (
@@ -79,10 +83,18 @@ func (m *Manager) run(c ValidatorConn) {
 	defer m.wg.Done()
 
 	logger := m.logger.With("chain", c.ChainID, "addr", c.Addr)
+
+	// Materialize the per-connection series up front so a validator that is
+	// unreachable from startup reports connected == 0 rather than no data.
+	metrics.ValidatorConnected.WithLabelValues(c.ChainID, c.Addr).Set(0)
+	metrics.ValidatorDials.WithLabelValues(c.ChainID, c.Addr, "ok").Add(0)
+	metrics.ValidatorDials.WithLabelValues(c.ChainID, c.Addr, "error").Add(0)
+
 	base := c.Dialer
 	if base == nil {
 		base = privval.DialTCPFn(c.Addr, defaultDialTimeout, c.IdentityKey)
 	}
+	base = instrumentDialer(base, c.ChainID, c.Addr)
 	dialer := backoffDialer(base, m.stop, logger, defaultBackoffInitial, defaultBackoffMax)
 
 	for {
@@ -97,8 +109,11 @@ func (m *Manager) run(c ValidatorConn) {
 			return // errDialerStopped: shutting down
 		}
 		logger.Info("kms: connected")
+		metrics.ValidatorConnected.WithLabelValues(c.ChainID, c.Addr).Set(1)
+		metrics.ValidatorConnectedSince.WithLabelValues(c.ChainID, c.Addr).Set(float64(time.Now().Unix()))
 
 		m.handleConnection(conn, c, logger)
+		metrics.ValidatorConnected.WithLabelValues(c.ChainID, c.Addr).Set(0)
 
 		if !c.Reconnect {
 			logger.Info("kms: reconnect disabled; connection closed")
@@ -155,8 +170,24 @@ func (m *Manager) serveConn(conn net.Conn, chainID string, signer types.PrivVali
 			return
 		}
 
+		start := time.Now()
 		resp, err := privval.DefaultValidationRequestHandler(signer, req, chainID)
 		kind, kv, ping := describeRequest(req)
+		mkind := requestKind(req)
+		metrics.Requests.WithLabelValues(chainID, mkind, classifyResult(err)).Inc()
+		switch mkind {
+		case kindProposal, kindPrevote, kindPrecommit:
+			metrics.SignDuration.WithLabelValues(chainID, mkind).Observe(time.Since(start).Seconds())
+			if err == nil {
+				h, r := requestHeightRound(req)
+				metrics.LastSignedHeight.WithLabelValues(chainID, mkind).Set(float64(h))
+				metrics.LastSignedRound.WithLabelValues(chainID, mkind).Set(float64(r))
+				metrics.LastSignedTimestamp.WithLabelValues(chainID, mkind).Set(float64(time.Now().Unix()))
+				metrics.SignStateHeight.WithLabelValues(chainID).Set(float64(h))
+				metrics.SignStateRound.WithLabelValues(chainID).Set(float64(r))
+				metrics.SignStateStep.WithLabelValues(chainID).Set(signStep(mkind))
+			}
+		}
 		switch {
 		case err != nil:
 			// resp already carries an embedded RemoteSignerError; log loudly and still send it.
@@ -202,4 +233,88 @@ func describeRequest(req privvalproto.Message) (kind string, kv []any, ping bool
 	default:
 		return "unknown", nil, false
 	}
+}
+
+// Metric label values for privval request kinds.
+const (
+	kindProposal  = "proposal"
+	kindPrevote   = "prevote"
+	kindPrecommit = "precommit"
+	kindPubkey    = "pubkey"
+	kindPing      = "ping"
+)
+
+// instrumentDialer wraps a SocketDialer so every dial attempt is counted.
+func instrumentDialer(base privval.SocketDialer, chainID, addr string) privval.SocketDialer {
+	return func() (net.Conn, error) {
+		conn, err := base()
+		if err != nil {
+			metrics.ValidatorDials.WithLabelValues(chainID, addr, "error").Inc()
+			return nil, err
+		}
+		metrics.ValidatorDials.WithLabelValues(chainID, addr, "ok").Inc()
+		return conn, nil
+	}
+}
+
+// requestKind maps a privval request onto the metrics type label.
+func requestKind(req privvalproto.Message) string {
+	switch r := req.Sum.(type) {
+	case *privvalproto.Message_SignVoteRequest:
+		if v := r.SignVoteRequest.GetVote(); v != nil && v.Type == cmtproto.PrecommitType {
+			return kindPrecommit
+		}
+		return kindPrevote
+	case *privvalproto.Message_SignProposalRequest:
+		return kindProposal
+	case *privvalproto.Message_PubKeyRequest:
+		return kindPubkey
+	case *privvalproto.Message_PingRequest:
+		return kindPing
+	default:
+		return "unknown"
+	}
+}
+
+// classifyResult maps a request-handler error onto the metrics result label.
+// FilePV double-sign refusals surface as height/round/step regression or
+// conflicting-data errors; everything else is an error.
+func classifyResult(err error) string {
+	if err == nil {
+		return "ok"
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "regression") || strings.Contains(msg, "conflicting data") {
+		return "refused"
+	}
+	return "error"
+}
+
+// requestHeightRound extracts the height and round from a signing request.
+func requestHeightRound(req privvalproto.Message) (int64, int32) {
+	switch r := req.Sum.(type) {
+	case *privvalproto.Message_SignVoteRequest:
+		if v := r.SignVoteRequest.GetVote(); v != nil {
+			return v.Height, v.Round
+		}
+	case *privvalproto.Message_SignProposalRequest:
+		if p := r.SignProposalRequest.GetProposal(); p != nil {
+			return p.Height, p.Round
+		}
+	}
+	return 0, 0
+}
+
+// signStep maps a signed message type onto the FilePV step it advances the
+// double-sign floor to (1 proposal, 2 prevote, 3 precommit).
+func signStep(kind string) float64 {
+	switch kind {
+	case kindProposal:
+		return 1
+	case kindPrevote:
+		return 2
+	case kindPrecommit:
+		return 3
+	}
+	return 0
 }
