@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/cosmos/kms/config"
 	"github.com/cosmos/kms/internal/app"
 	"github.com/cosmos/kms/internal/identity"
+	"github.com/cosmos/kms/internal/metrics"
 	"github.com/cosmos/kms/internal/signer"
 	"github.com/cosmos/kms/internal/version"
 )
@@ -146,6 +148,23 @@ func startCmd() *cobra.Command {
 					}
 				}()
 				defer srv.Close()
+			}
+
+			if cfg.Metrics != nil {
+				if cfg.Metrics.Listen == "" {
+					return fmt.Errorf("config: metrics block requires listen")
+				}
+				ms, merr := metrics.NewServer(cfg.Metrics.Listen)
+				if merr != nil {
+					return fmt.Errorf("metrics listen %q: %w", cfg.Metrics.Listen, merr)
+				}
+				go func() {
+					if serr := ms.Serve(); serr != nil && serr != http.ErrServerClosed {
+						logger.Error("metrics server failed", "err", serr)
+					}
+				}()
+				defer ms.Close()
+				logger.Info("serving metrics", "listen", cfg.Metrics.Listen, "path", "/metrics")
 			}
 
 			logger.Info("kms started; press Ctrl-C to stop")

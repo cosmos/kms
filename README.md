@@ -440,6 +440,17 @@ CometBFT are Ed25519, so no extra setup is needed.
 
 ---
 
+## Metrics
+
+kms can serve Prometheus metrics (an optional `metrics:` config block; the
+standard Go and process collectors plus signer metrics: connection state,
+requests and results including double-sign refusals, sign latency, the
+persisted double-sign state, backend latency and errors, and build/key
+metadata). See [docs/metrics.md](docs/metrics.md) for the full reference and
+starter alerts.
+
+---
+
 ## Testing
 
 ```sh

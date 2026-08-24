@@ -29,6 +29,7 @@ linters:
             - github.com/libp2p/go-libp2p
             - github.com/miekg/pkcs11
             - github.com/aws/aws-sdk-go-v2
+            - github.com/prometheus/client_golang
             - github.com/spf13/cobra
             - github.com/stretchr/testify
             - github.com/decred/dcrd/dcrec/secp256k1

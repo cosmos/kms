@@ -23,6 +23,14 @@ type Config struct {
 	Validators []Validator `yaml:"validators"`
 	Keys       []Key       `yaml:"keys"`
 	GRPC       *GRPCConfig `yaml:"grpc"`
+
+	Metrics *MetricsConfig `yaml:"metrics"`
+}
+
+// MetricsConfig enables the optional Prometheus endpoint. The listener
+// carries no authentication; restrict access by network policy.
+type MetricsConfig struct {
+	Listen string `yaml:"listen"` // host:port for GET /metrics
 }
 
 // Chain declares a chain and its double-sign state file.

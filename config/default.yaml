@@ -61,3 +61,10 @@ keys:
 #       algorithm: ed25519       # optional; default "ed25519" for awskms
 #       key_id: alias/attestor   # KMS id, ARN, or alias/<name>
 #       region: us-east-1        # optional; AWS default chain otherwise
+
+# Optional Prometheus endpoint. Serves GET /metrics with the kms signer
+# metrics plus the standard Go and process collectors. The listener carries
+# NO authentication; restrict access with network controls.
+#
+# metrics:
+#   listen: 0.0.0.0:8545
